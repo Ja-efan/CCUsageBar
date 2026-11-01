@@ -5,13 +5,10 @@ struct UsageRow: View {
     let title: String
     let percent: Int?
     let reset: String?
-
-    private var color: Color {
-        guard let p = percent else { return .gray }
-        return p >= 90 ? .red : (p >= 70 ? .orange : .green)
-    }
+    @ObservedObject var settings: AppSettings
 
     var body: some View {
+        let color = settings.color(for: percent)
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(title).font(.headline)
@@ -22,7 +19,7 @@ struct UsageRow: View {
             }
             ProgressView(value: Double(percent ?? 0), total: 100).tint(color)
             if let reset {
-                Text("초기화: \(reset)").font(.caption).foregroundStyle(.secondary)
+                Text(settings.strings.resets(reset)).font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -36,28 +33,33 @@ private struct ContentHeightKey: PreferenceKey {
 
 struct PanelView: View {
     @ObservedObject var store: UsageStore
+    @ObservedObject var settings: AppSettings
     static let maxContentHeight: CGFloat = 560
+
+    private var s: Strings { settings.strings }
 
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("Claude Code 사용량").font(.title3.bold())
-                    UsageRow(title: "5시간 세션", percent: store.snapshot.sessionPercent, reset: store.snapshot.sessionReset)
-                    UsageRow(title: "주간 (전체 모델)", percent: store.snapshot.weekPercent, reset: store.snapshot.weekReset)
+                    Text(s.title).font(.title3.bold())
+                    UsageRow(title: s.session, percent: store.snapshot.sessionPercent,
+                             reset: store.snapshot.sessionReset, settings: settings)
+                    UsageRow(title: s.weekAll, percent: store.snapshot.weekPercent,
+                             reset: store.snapshot.weekReset, settings: settings)
                     ForEach(store.snapshot.modelLimits) { m in
-                        UsageRow(title: "주간 (\(m.name))", percent: m.percent, reset: m.reset)
+                        UsageRow(title: s.weekModel(m.name), percent: m.percent, reset: m.reset, settings: settings)
                     }
 
                     if let e = store.snapshot.error {
-                        Label(e.message, systemImage: "exclamationmark.triangle")
+                        Label(s.error(e), systemImage: "exclamationmark.triangle")
                             .font(.caption).foregroundStyle(.orange)
                     }
 
                     Button {
-                        RawOutputWindow.show(store: store)
+                        RawOutputWindow.show(store: store, settings: settings)
                     } label: {
-                        Label("원본 출력 보기", systemImage: "doc.text.magnifyingglass")
+                        Label(s.showRawOutput, systemImage: "doc.text.magnifyingglass")
                     }
                     .buttonStyle(.link)
                     .font(.caption)
@@ -68,24 +70,30 @@ struct PanelView: View {
                 })
             }
             // A ScrollView has no natural height inside a menu bar panel, so size it
-            // to the measured content (capped) — otherwise it collapses to zero.
+            // to the measured content (capped); otherwise it collapses to zero.
             .frame(height: min(max(store.contentHeight, 120), PanelView.maxContentHeight))
             .onPreferenceChange(ContentHeightKey.self) { store.contentHeight = $0 }
 
             Divider()
 
             // Footer stays visible while the content scrolls.
-            HStack {
+            HStack(spacing: 8) {
                 if store.isLoading {
                     ProgressView().controlSize(.small)
-                    Text("불러오는 중…").font(.caption)
+                    Text(s.loading).font(.caption)
                 } else if store.hasLoaded {
-                    Text("업데이트: \(store.snapshot.updatedAt.formatted(date: .omitted, time: .shortened))")
+                    Text(s.updated(store.snapshot.updatedAt.formatted(date: .omitted, time: .shortened)))
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("새로고침") { store.refresh() }.disabled(store.isLoading)
-                Button("종료") { NSApp.terminate(nil) }
+                Button {
+                    SettingsWindow.show(store: store, settings: settings)
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .help(s.settings)
+                Button(s.refresh) { store.refresh() }.disabled(store.isLoading)
+                Button(s.quit) { NSApp.terminate(nil) }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)

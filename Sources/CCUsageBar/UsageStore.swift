@@ -29,16 +29,11 @@ final class UsageStore: ObservableObject {
             let snap = runner.fetch()
             DispatchQueue.main.async {
                 self.snapshot = snap
+                AppSettings.shared.registerModels(snap.modelLimits.map(\.name))
                 self.hasLoaded = true
                 self.isLoading = false
             }
         }
     }
 
-    var menuBarLabel: String {
-        guard hasLoaded else { return "CC …" }
-        guard snapshot.hasUsage else { return "CC ⚠︎" }
-        func f(_ v: Int?) -> String { v.map { "\($0)%" } ?? "–" }
-        return "5h \(f(snapshot.sessionPercent)) · 7d \(f(snapshot.weekPercent))"
-    }
 }

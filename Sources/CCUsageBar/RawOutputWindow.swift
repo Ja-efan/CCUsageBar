@@ -10,16 +10,17 @@ import UsageCore
 enum RawOutputWindow {
     private static var window: NSWindow?
 
-    static func show(store: UsageStore) {
+    static func show(store: UsageStore, settings: AppSettings) {
         if window == nil {
-            let w = NSWindow(contentViewController: NSHostingController(rootView: RawOutputView(store: store)))
-            w.title = "CC Usage Bar · 원본 출력"
+            let w = NSWindow(contentViewController: NSHostingController(rootView: RawOutputView(store: store, settings: settings)))
+
             w.styleMask = [.titled, .closable, .resizable, .miniaturizable]
             w.setContentSize(NSSize(width: 640, height: 520))
             w.isReleasedWhenClosed = false
             w.center()
             window = w
         }
+        window?.title = settings.strings.rawOutputTitle
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
     }
@@ -27,11 +28,13 @@ enum RawOutputWindow {
 
 struct RawOutputView: View {
     @ObservedObject var store: UsageStore
+    @ObservedObject var settings: AppSettings
+    private var s: Strings { settings.strings }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ScrollView([.vertical, .horizontal]) {
-                Text(store.snapshot.raw.isEmpty ? "(아직 없음)" : store.snapshot.raw)
+                Text(store.snapshot.raw.isEmpty ? s.notYet : store.snapshot.raw)
                     .font(.system(size: 11, design: .monospaced))
                     .textSelection(.enabled)
                     .fixedSize(horizontal: true, vertical: true)
@@ -41,14 +44,14 @@ struct RawOutputView: View {
             .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 6))
 
             HStack {
-                Text("업데이트: \(store.snapshot.updatedAt.formatted(date: .omitted, time: .standard))")
+                Text(s.updated(store.snapshot.updatedAt.formatted(date: .omitted, time: .standard)))
                     .font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Button("Finder에서 보기") {
+                Button(s.showInFinder) {
                     let path = ClaudeRunner().debugFiles.cleaned
                     NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "")
                 }
-                Button("복사") {
+                Button(s.copy) {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(store.snapshot.raw, forType: .string)
                 }
