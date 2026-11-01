@@ -26,9 +26,21 @@ public struct ClaudeRunner: Sendable {
     public func fetch() -> UsageSnapshot {
         guard let claude = Self.findClaude() else { return UsageSnapshot(error: .claudeNotFound) }
         let (raw, err) = capture(claudePath: claude)
-        var snap = UsageParser.parse(raw)
+        let cleaned = TerminalText.clean(raw)
+        saveDebug(raw: raw, cleaned: cleaned)
+        var snap = UsageParser.parse(cleaned)
         if let err { snap.error = err }
         return snap
+    }
+
+    /// Last captured output, for troubleshooting parser issues.
+    public var debugFiles: (raw: String, cleaned: String) {
+        (workDirectory + "/last-output.raw.txt", workDirectory + "/last-output.txt")
+    }
+
+    func saveDebug(raw: String, cleaned: String) {
+        try? raw.write(toFile: debugFiles.raw, atomically: true, encoding: .utf8)
+        try? cleaned.write(toFile: debugFiles.cleaned, atomically: true, encoding: .utf8)
     }
 
     func capture(claudePath: String) -> (String, UsageError?) {
@@ -93,7 +105,7 @@ public struct ClaudeRunner: Sendable {
         }
 
         drain()
-        let result = (text(), sentUsage ? nil : UsageError.noResponse)
+        let result = (String(decoding: buffer, as: UTF8.self), sentUsage ? nil : UsageError.noResponse)
 
         // Shut down in the background so the caller gets the result immediately.
         // Keep draining the PTY while waiting: on macOS a process can't finish

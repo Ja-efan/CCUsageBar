@@ -58,16 +58,24 @@ struct PanelView: View {
 
             DisclosureGroup("원본 출력 (디버그)", isExpanded: $store.showRaw) {
                 ScrollView {
-                    Text(TerminalText.usageSection(store.snapshot.raw))
+                    Text(store.snapshot.raw)
                         .font(.system(size: 10, design: .monospaced))
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(height: 160)
+                .frame(height: 220)
             }
             .font(.caption)
 
-            HStack { Spacer(); Button("종료") { NSApp.terminate(nil) } }
+            HStack {
+                Button("원본 복사") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(store.snapshot.raw, forType: .string)
+                }
+                .disabled(store.snapshot.raw.isEmpty)
+                Spacer()
+                Button("종료") { NSApp.terminate(nil) }
+            }
         }
         .padding(16)
         .frame(width: 320)

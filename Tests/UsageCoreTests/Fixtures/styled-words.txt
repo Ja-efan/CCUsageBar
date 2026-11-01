@@ -1,0 +1,11 @@
+[?25l❯ /usage
+[2K[1A[2K[G [1mSettings[22m  Status  Config  [7mUsage[27m
+[2K[G [1mCurrent[22m [1msession[22m
+[2K[G [38;2;215;119;87m██████████[39m[38;2;80;80;80m░░░░░░░░░░[39m [1m27%[22m [2mused[22m
+[2K[G [2mResets[22m [2m11pm[22m [2m(Asia/Seoul)[22m
+[2K[G [1mCurrent[22m [1mweek[22m [1m(all[22m [1mmodels)[22m
+[2K[G ███[39m [1m9%[22m [2mused[22m
+[2K[G [2mResets[22m [2mNov[22m [2m6,[22m [2m10am[22m [2m(Asia/Seoul)[22m
+[2K[G [1mExtra[22m [1musage[22m
+[2K[G Extra usage not enabled · [36m/usage-credits[39m to turn them on
+[2K[G [2mEsc[22m [2mto[22m [2mcancel[22m

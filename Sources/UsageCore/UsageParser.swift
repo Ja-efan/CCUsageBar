@@ -4,7 +4,7 @@ import Foundation
 public enum UsageParser {
     public static func parse(_ cleaned: String, updatedAt: Date = Date()) -> UsageSnapshot {
         var snap = UsageSnapshot(raw: cleaned, updatedAt: updatedAt)
-        let lines = TerminalText.usageSection(cleaned).components(separatedBy: "\n")
+        let lines = cleaned.components(separatedBy: "\n")
 
         // Use the LAST matching header: TUI redraws repeat earlier frames.
         if let i = lines.lastIndex(where: isSessionHeader) {

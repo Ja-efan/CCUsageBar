@@ -31,3 +31,23 @@ final class UsageParserTests: XCTestCase {
         XCTAssertNil(UsageParser.parse(text).weekPercent)
     }
 }
+
+final class StyledOutputTests: XCTestCase {
+    /// Every word wrapped in color codes + a `/usage-credits` hint below the numbers.
+    func testStyledWordsAndUsageCreditsHint() throws {
+        let url = try XCTUnwrap(Bundle.module.url(forResource: "styled-words", withExtension: "txt", subdirectory: "Fixtures"))
+        let snap = UsageParser.parse(TerminalText.clean(try String(contentsOf: url, encoding: .utf8)))
+        XCTAssertEqual(snap.sessionPercent, 27)
+        XCTAssertEqual(snap.sessionReset, "11pm (Asia/Seoul)")
+        XCTAssertEqual(snap.weekPercent, 9)
+        XCTAssertEqual(snap.weekReset, "Nov 6, 10am (Asia/Seoul)")
+    }
+
+    func testColorCodesDoNotSplitLines() {
+        XCTAssertEqual(TerminalText.clean("\u{1b}[1mCurrent\u{1b}[22m \u{1b}[1msession\u{1b}[22m"), "Current session")
+    }
+
+    func testUsageSectionIgnoresUsageCreditsHint() {
+        XCTAssertEqual(TerminalText.usageSection("❯ /usage\nA\n/usage-credits to turn on").hasPrefix("\nA"), true)
+    }
+}
