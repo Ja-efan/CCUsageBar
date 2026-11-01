@@ -54,27 +54,12 @@ struct PanelView: View {
                             .font(.caption).foregroundStyle(.orange)
                     }
 
-                    DisclosureGroup("원본 출력 (디버그)", isExpanded: $store.showRaw) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ScrollView([.vertical, .horizontal]) {
-                                Text(store.snapshot.raw.isEmpty ? "(아직 없음)" : store.snapshot.raw)
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .textSelection(.enabled)
-                                    .fixedSize(horizontal: true, vertical: true)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(6)
-                            }
-                            .frame(height: 260)
-                            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 6))
-
-                            Button("원본 복사") {
-                                NSPasteboard.general.clearContents()
-                                NSPasteboard.general.setString(store.snapshot.raw, forType: .string)
-                            }
-                            .disabled(store.snapshot.raw.isEmpty)
-                        }
-                        .padding(.top, 4)
+                    Button {
+                        RawOutputWindow.show(store: store)
+                    } label: {
+                        Label("원본 출력 보기", systemImage: "doc.text.magnifyingglass")
                     }
+                    .buttonStyle(.link)
                     .font(.caption)
                 }
                 .padding(16)

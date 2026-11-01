@@ -6,7 +6,6 @@ final class UsageStore: ObservableObject {
     @Published private(set) var snapshot = UsageSnapshot()
     @Published private(set) var isLoading = false
     @Published private(set) var hasLoaded = false
-    @Published var showRaw = false
     @Published var contentHeight: CGFloat = 0
 
     /// Refresh interval in seconds.
