@@ -28,8 +28,15 @@ struct UsageRow: View {
     }
 }
 
+/// Reports the natural height of the scrollable content.
+private struct ContentHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
 struct PanelView: View {
     @ObservedObject var store: UsageStore
+    static let maxContentHeight: CGFloat = 560
 
     var body: some View {
         VStack(spacing: 0) {
@@ -71,8 +78,14 @@ struct PanelView: View {
                     .font(.caption)
                 }
                 .padding(16)
+                .background(GeometryReader { g in
+                    Color.clear.preference(key: ContentHeightKey.self, value: g.size.height)
+                })
             }
-            .frame(maxHeight: 560)
+            // A ScrollView has no natural height inside a menu bar panel, so size it
+            // to the measured content (capped) — otherwise it collapses to zero.
+            .frame(height: min(max(store.contentHeight, 120), PanelView.maxContentHeight))
+            .onPreferenceChange(ContentHeightKey.self) { store.contentHeight = $0 }
 
             Divider()
 
