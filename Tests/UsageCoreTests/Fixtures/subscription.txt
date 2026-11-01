@@ -1,0 +1,14 @@
+[2J❯ /usage
+[1m Settings  Status  Config  Usage[0m
+ Current session[1C
+ [38;5;12m█████▌[39m[40C42% used
+ Resets 3pm (Asia/Seoul)
+
+ Current week (all models)
+ ██[45C18% used
+ Resets Nov 6, 10am (Asia/Seoul)
+
+ Current week (Sonnet only)
+ 3% used
+ Resets Nov 6, 10am
+Esc to cancel

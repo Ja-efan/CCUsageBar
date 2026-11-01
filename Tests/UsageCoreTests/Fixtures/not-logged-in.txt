@@ -1,0 +1,7 @@
+ ▐▛███▛█  Claude Code v2.1.310
+▝▜██████▀  Opus 5.5 · API Usage Billing
+❯ /usage
+ Session
+Total cost:            $0.0000
+Esc to cancel
+Not logged in · Run /login
