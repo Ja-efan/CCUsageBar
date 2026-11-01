@@ -81,7 +81,7 @@ public struct ClaudeRunner: Sendable {
                     usleep(1_500_000)
                     continue
                 }
-                if elapsed > 2.5, t.contains("❯") || elapsed > 6 {
+                if elapsed > 1.5, t.contains("❯") || elapsed > 6 {
                     send("/usage"); usleep(600_000); send("\r")
                     sentUsage = true; sentAt = Date()
                 }
@@ -93,12 +93,45 @@ public struct ClaudeRunner: Sendable {
         }
 
         drain()
-        send("\u{1b}"); usleep(300_000); send("\u{3}"); usleep(300_000); send("\u{3}"); usleep(500_000)
-        kill(pid, SIGTERM); usleep(300_000); kill(pid, SIGKILL)
-        var status: Int32 = 0
-        waitpid(pid, &status, 0)
-        close(master)
+        let result = (text(), sentUsage ? nil : UsageError.noResponse)
 
-        return (text(), sentUsage ? nil : .noResponse)
+        // Shut down in the background so the caller gets the result immediately.
+        // Keep draining the PTY while waiting: on macOS a process can't finish
+        // exiting while its terminal output buffer is full (that caused a hang).
+        let fd = master
+        DispatchQueue.global(qos: .background).async {
+            Self.terminate(pid: pid, master: fd)
+        }
+        return result
+    }
+
+    static func terminate(pid: pid_t, master: Int32) {
+        var chunk = [UInt8](repeating: 0, count: 8192)
+        func drain() { while read(master, &chunk, chunk.count) > 0 {} }
+        func send(_ s: String) { _ = s.withCString { write(master, $0, strlen($0)) } }
+        func reaped(within seconds: Double) -> Bool {
+            let deadline = Date().addingTimeInterval(seconds)
+            var status: Int32 = 0
+            while Date() < deadline {
+                drain()
+                let r = waitpid(pid, &status, WNOHANG)
+                if r == pid || r == -1 { return true }
+                usleep(50_000)
+            }
+            return false
+        }
+
+        // 1) Polite exit: Esc, Ctrl-C twice.
+        send("\u{1b}"); usleep(100_000); send("\u{3}"); usleep(100_000); send("\u{3}")
+        if reaped(within: 1.5) { close(master); return }
+        // 2) SIGTERM / SIGKILL the whole process group (claude may spawn helpers).
+        kill(-pid, SIGTERM); kill(pid, SIGTERM)
+        if reaped(within: 1.0) { close(master); return }
+        kill(-pid, SIGKILL); kill(pid, SIGKILL)
+        if reaped(within: 1.0) { close(master); return }
+        // 3) Last resort: hang up the terminal, then reap without blocking forever.
+        close(master)
+        var status: Int32 = 0
+        for _ in 0..<100 { if waitpid(pid, &status, WNOHANG) != 0 { return }; usleep(100_000) }
     }
 }
