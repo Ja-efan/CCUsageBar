@@ -100,7 +100,7 @@ public struct ClaudeRunner: Sendable {
             } else {
                 let since = Date().timeIntervalSince(sentAt)
                 let found = TerminalText.count(TerminalText.usageSection(t), pattern: "\\d{1,3}\\s*%") >= 2
-                if (found && since > 2.0) || since > 12 { usleep(500_000); break }
+                if (found && since > 2.5) || since > 12 { usleep(500_000); break }
             }
         }
 

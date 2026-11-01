@@ -26,9 +26,11 @@ final class UsageParserTests: XCTestCase {
         XCTAssertEqual(TerminalText.clean("Total\u{1b}[3Ccost"), "Total cost")
     }
 
-    func testIgnoresModelScopedWeeklyCap() {
+    func testModelScopedWeeklyCapIsSeparate() {
         let text = "/usage\nCurrent week (Sonnet only)\n77% used"
-        XCTAssertNil(UsageParser.parse(text).weekPercent)
+        let snap = UsageParser.parse(text)
+        XCTAssertNil(snap.weekPercent)
+        XCTAssertEqual(snap.modelLimit(named: "Sonnet")?.percent, 77)
     }
 }
 
@@ -49,5 +51,18 @@ final class StyledOutputTests: XCTestCase {
 
     func testUsageSectionIgnoresUsageCreditsHint() {
         XCTAssertEqual(TerminalText.usageSection("❯ /usage\nA\n/usage-credits to turn on").hasPrefix("\nA"), true)
+    }
+}
+
+final class RealOutputTests: XCTestCase {
+    /// Captured from Claude Code 2.1.310 on a Max plan (personal stats trimmed).
+    func testRealOutputWithFableWeeklyCap() throws {
+        let url = try XCTUnwrap(Bundle.module.url(forResource: "real-2.1.310", withExtension: "txt", subdirectory: "Fixtures"))
+        let snap = UsageParser.parse(try String(contentsOf: url, encoding: .utf8))
+        XCTAssertEqual(snap.sessionPercent, 100)
+        XCTAssertEqual(snap.sessionReset, "12am (Asia/Seoul)")
+        XCTAssertEqual(snap.weekPercent, 10)
+        XCTAssertEqual(snap.weekReset, "Nov 8 at 9am (Asia/Seoul)")
+        XCTAssertEqual(snap.modelLimits, [ModelLimit(name: "Fable", percent: 2, reset: "Nov 8 at 9am (Asia/Seoul)")])
     }
 }
