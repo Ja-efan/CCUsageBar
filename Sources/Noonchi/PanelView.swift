@@ -26,8 +26,8 @@ struct WindowRow: View {
             .opacity(stale ? 0.45 : 1)
             Text("\(percent)%")
                 .fontWeight(.medium)
-                .foregroundStyle(settings.textColor(for: window.usedPercent))
-                .opacity(stale ? 0.45 : 1)
+                // Dimming text this much fails contrast; the header already says it's old.
+                .foregroundStyle(stale ? Color.secondary : settings.textColor(for: window.usedPercent))
                 .frame(width: 36, alignment: .trailing)
             resetText
                 .font(.system(size: 11))
@@ -37,6 +37,15 @@ struct WindowRow: View {
         }
         .font(.system(size: 12).monospacedDigit())
         .frame(height: 22)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText)
+    }
+
+    private var accessibilityText: String {
+        let s = settings.strings
+        var parts = [s.windowLabel(window.kind), s.used(Int(window.usedPercent.rounded()))]
+        if let date = window.resetsAt { parts.append(s.resetsAt(s.reset(ResetDisplay(date)))) }
+        return parts.joined(separator: ", ")
     }
 
     @ViewBuilder private var resetText: some View {
@@ -184,6 +193,7 @@ struct PanelView: View {
                 .buttonStyle(.borderless)
                 .disabled(store.isLoading)
                 .help(s.refresh)
+                .accessibilityLabel(s.refresh)
                 Menu {
                     Button(s.settingsMenu) { SettingsWindow.show(store: store, settings: settings) }
                         .keyboardShortcut(",")
@@ -198,6 +208,7 @@ struct PanelView: View {
                 .menuIndicator(.hidden)
                 .fixedSize()
                 .help(s.more)
+                .accessibilityLabel(s.more)
             }
             .font(.system(size: 11))
             .foregroundStyle(.secondary)

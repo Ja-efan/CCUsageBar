@@ -26,7 +26,11 @@ public final class PTYSession {
         let pid = forkpty(&master, nil, nil, &ws)
         if pid < 0 { return nil }
         if pid == 0 {
-            chdir(dir)
+            // Never run (and answer prompts) anywhere but the given directory.
+            if chdir(dir) != 0 { _exit(126) }
+            // Pipes the app holds (e.g. another service's stdin) would otherwise stay open
+            // in the CLI and its helpers, and that process would never see EOF.
+            for fd in 3..<getdtablesize() { close(fd) }
             execve(path, argv, envp)
             _exit(127)
         }
@@ -86,18 +90,17 @@ public final class PTYSession {
             return false
         }
 
-        // 1) Polite exit.
         for (i, key) in exitKeys.enumerated() {
             if i > 0 { usleep(100_000) }
             send(key)
         }
         if reaped(within: 1.5) { close(master); return }
-        // 2) SIGTERM / SIGKILL the whole process group (the CLI may spawn helpers).
+        // SIGTERM / SIGKILL the whole process group (the CLI may spawn helpers).
         kill(-pid, SIGTERM); kill(pid, SIGTERM)
         if reaped(within: 1.0) { close(master); return }
         kill(-pid, SIGKILL); kill(pid, SIGKILL)
         if reaped(within: 1.0) { close(master); return }
-        // 3) Last resort: hang up the terminal, then reap without blocking forever.
+        // Last resort: hang up the terminal, then reap without blocking forever.
         close(master)
         var status: Int32 = 0
         for _ in 0..<100 { if waitpid(pid, &status, WNOHANG) != 0 { return }; usleep(100_000) }

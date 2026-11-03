@@ -4,7 +4,7 @@ import Foundation
 ///
 /// Seen in 2.1.x: "3pm (Asia/Seoul)", "12am (Asia/Seoul)", "Nov 6, 10am (Asia/Seoul)",
 /// "Nov 8 at 9am (Asia/Seoul)". The time is the next one after `now`; a date without
-/// a year is this year's unless that's already well past.
+/// a year is this year's unless that's more than a day past.
 enum ResetTimeParser {
     private static let pattern = try! NSRegularExpression(
         pattern: #"^(?:([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2})(?:,\s*(\d{4}))?(?:,|\s+at)?\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s*(?:\(([^)]+)\))?$"#,

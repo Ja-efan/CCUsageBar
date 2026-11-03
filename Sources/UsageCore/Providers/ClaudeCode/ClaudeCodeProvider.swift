@@ -38,7 +38,6 @@ public struct ClaudeCodeProvider: UsageProvider {
         }
     }
 
-    /// Splits a parsed snapshot into a reading or a failure.
     static func usage(from snap: UsageSnapshot) -> Result<ProviderUsage, ProviderFailure> {
         guard snap.hasUsage else {
             return .failure(ProviderFailure(ProviderError(snap.error ?? .unparsable), raw: snap.raw))
@@ -73,7 +72,8 @@ public struct ClaudeCodeProvider: UsageProvider {
         }
         // The banner may have scrolled off the final screen.
         if snap.plan == nil { snap.plan = UsageParser.plan(in: TerminalText.clean(raw)) }
-        saveDebug(raw: raw, cleaned: snap.raw)
+        snap.raw = UsageParser.withoutLocalStats(snap.raw)
+        saveDebug(cleaned: snap.raw)
         if let err { snap.error = err }
         return snap
     }
@@ -91,18 +91,20 @@ public struct ClaudeCodeProvider: UsageProvider {
     static let columns = 140
     static let rows = 50
 
-    /// Last captured output, for troubleshooting parser issues.
-    public var debugFiles: (raw: String, cleaned: String) {
-        (workDirectory + "/last-output.raw.txt", workDirectory + "/last-output.txt")
-    }
+    /// Last captured screen, for troubleshooting parser issues.
+    public var debugFile: String { workDirectory + "/last-output.txt" }
 
-    func saveDebug(raw: String, cleaned: String) {
-        try? raw.write(toFile: debugFiles.raw, atomically: true, encoding: .utf8)
-        try? cleaned.write(toFile: debugFiles.cleaned, atomically: true, encoding: .utf8)
+    func saveDebug(cleaned: String) {
+        try? cleaned.write(toFile: debugFile, atomically: true, encoding: .utf8)
+        // v0.3 also kept the unfiltered PTY stream.
+        try? FileManager.default.removeItem(atPath: workDirectory + "/last-output.raw.txt")
     }
 
     func capture(claudePath: String) -> (String, UsageError?) {
         try? FileManager.default.createDirectory(atPath: workDirectory, withIntermediateDirectories: true)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: workDirectory, isDirectory: &isDirectory), isDirectory.boolValue
+        else { return ("", .launchFailed) }
 
         let home = NSHomeDirectory()
         var env = ProcessInfo.processInfo.environment
@@ -125,7 +127,8 @@ public struct ClaudeCodeProvider: UsageProvider {
             let elapsed = Date().timeIntervalSince(start)
 
             if !sentUsage {
-                // Accept "trust this folder" for the app's private work dir.
+                // Accept "trust this folder" for the app's private work dir. Bounded so an
+                // unexpected prompt layout can't loop.
                 if trustKeys < 4, let key = Self.trustPromptKey(pty.screen) {
                     trustKeys += 1
                     pty.send(key)

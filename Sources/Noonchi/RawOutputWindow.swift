@@ -65,7 +65,7 @@ struct RawOutputView: View {
                 // Only Claude's capture is saved to disk.
                 if let claude = provider as? ClaudeCodeProvider {
                     Button(s.showInFinder) {
-                        NSWorkspace.shared.selectFile(claude.debugFiles.cleaned, inFileViewerRootedAtPath: "")
+                        NSWorkspace.shared.selectFile(claude.debugFile, inFileViewerRootedAtPath: "")
                     }
                 }
                 Button(s.copy) {

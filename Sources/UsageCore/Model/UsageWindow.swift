@@ -40,6 +40,13 @@ public struct UsageWindow: Identifiable, Equatable, Sendable {
         }
     }
 
+    /// The kind a window ID stands for, for windows known only by ID.
+    public static func kind(forID id: String) -> Kind? {
+        if id.hasPrefix("model:") { return .model(name: String(id.dropFirst("model:".count)), minutes: nil) }
+        let (minutes, _) = sortKey(id: id)
+        return minutes < Int.max - 1 ? .rolling(minutes: minutes) : nil
+    }
+
     public init(id: String, kind: Kind, usedPercent: Double, resetsAt: Date? = nil, resetText: String? = nil) {
         self.id = id
         self.kind = kind

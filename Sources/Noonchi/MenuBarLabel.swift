@@ -17,7 +17,10 @@ struct MenuBarLabel: View {
                 Image(systemName: "gauge.with.dots.needle.33percent")
             } else {
                 Image(nsImage: render(items))
-                    .accessibilityLabel(items.map(\.text).joined(separator: ", "))
+                    .accessibilityLabel(items.map { item in
+                        let name = Providers.all.first { $0.id == item.providerID }?.displayName ?? ""
+                        return "\(name) \(item.text)"
+                    }.joined(separator: ", "))
             }
         }
         .onReceive(DistributedNotificationCenter.default().publisher(
@@ -93,14 +96,14 @@ struct ProviderGlyph: View {
                 .overlay(RoundedRectangle(cornerRadius: 3).stroke(lineWidth: 1.2))
         case .ring:
             ZStack {
-                Circle().stroke(lineWidth: 1.6).opacity(0.3)
+                Circle().stroke(lineWidth: 1.8).opacity(0.3)
                 Circle()
                     .trim(from: 0, to: min(max((percent ?? 0) / 100, 0), 1))
-                    .stroke(style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+                    .stroke(style: StrokeStyle(lineWidth: 1.8, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                Text(provider.monogram).font(.system(size: 7, weight: .bold))
+                Text(provider.monogram).font(.system(size: 8, weight: .bold))
             }
-            .frame(width: 14, height: 14)
+            .frame(width: 16, height: 16)
         }
     }
 }

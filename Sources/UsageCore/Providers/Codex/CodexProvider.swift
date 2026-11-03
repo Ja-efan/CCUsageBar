@@ -45,7 +45,7 @@ public struct CodexProvider: UsageProvider {
         let home = NSHomeDirectory()
         var env = ProcessInfo.processInfo.environment
         env["HOME"] = home
-        // npm installs are a node script.
+        // GUI apps get a minimal PATH; an npm-installed codex is a node script and needs node.
         env["PATH"] = "\(home)/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
         let deadline = Date().addingTimeInterval(timeout)
         do {
@@ -56,7 +56,7 @@ public struct CodexProvider: UsageProvider {
             _ = try rpc.request("initialize", params: ["clientInfo": ["name": "noonchi", "version": version]],
                                 timeout: deadline.timeIntervalSinceNow)
             try rpc.notify("initialized")
-            // Background polls skip the separate reset-credit lookup.
+            // Reset-credit details aren't shown; skip that extra lookup.
             let result = try rpc.request("account/rateLimits/read", params: ["excludeResetCreditDetails": true],
                                          timeout: deadline.timeIntervalSinceNow)
             return Self.usage(from: result)
@@ -78,13 +78,13 @@ public struct CodexProvider: UsageProvider {
         return .success(ProviderUsage(plan: response.planName, windows: windows, fetchedAt: date, raw: raw))
     }
 
-    /// Pretty JSON for the raw output window, without the account ID.
+    /// Pretty JSON for the raw output window: only the rate limit fields, so the
+    /// account ID and anything Codex adds later stay out.
     static func redacted(_ result: Data) -> String {
-        guard var obj = try? JSONSerialization.jsonObject(with: result) as? [String: Any] else {
-            return String(decoding: result, as: UTF8.self)
-        }
-        obj.removeValue(forKey: "accountId")
-        guard let data = try? JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys])
+        let kept = ["rateLimits", "rateLimitsByLimitId", "rateLimitResetCredits"]
+        guard let obj = try? JSONSerialization.jsonObject(with: result) as? [String: Any],
+              let data = try? JSONSerialization.data(withJSONObject: obj.filter { kept.contains($0.key) },
+                                                     options: [.prettyPrinted, .sortedKeys])
         else { return "" }
         return String(decoding: data, as: UTF8.self)
     }

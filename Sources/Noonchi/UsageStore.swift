@@ -7,12 +7,12 @@ final class UsageStore: ObservableObject {
     @Published private(set) var shown: [any UsageProvider] = []
     @Published private(set) var states: [ProviderID: ProviderState] = [:]
     @Published var contentHeight: CGFloat = 0
-    /// Predicts when a window hits its limit; replaceable with a better model.
     var paceModel: any PaceModel = PaceEstimator()
-    /// Told about every good reading.
     private var observers: [any UsageObserver] = []
 
     private var timers: [Timer] = []
+    /// Bumped when a service is turned off, so a read started before that is dropped.
+    private var generation: [ProviderID: Int] = [:]
 
     init() {
         refresh()
@@ -32,7 +32,6 @@ final class UsageStore: ObservableObject {
     }
 
     var isLoading: Bool { states.values.contains { $0.isLoading } }
-    /// Time of the newest good reading.
     var lastUpdated: Date? { states.values.compactMap { $0.usage?.fetchedAt }.max() }
 
     func refresh() {
@@ -44,6 +43,7 @@ final class UsageStore: ObservableObject {
     func refresh(_ provider: any UsageProvider) {
         let id = provider.id
         guard AppSettings.shared.isEnabled(id), provider.locateExecutable() != nil else {
+            if states[id] != nil { generation[id, default: 0] += 1 }
             states[id] = nil
             shown = Providers.all.filter { states[$0.id] != nil }
             return
@@ -51,6 +51,7 @@ final class UsageStore: ObservableObject {
         guard states[id]?.isLoading != true else { return }
         states[id, default: ProviderState()].isLoading = true
         shown = Providers.all.filter { states[$0.id] != nil }
+        let started = generation[id, default: 0]
 
         Task {
             let result: Result<ProviderUsage, ProviderFailure>
@@ -61,8 +62,8 @@ final class UsageStore: ObservableObject {
             } catch {
                 result = .failure(ProviderFailure(.failed(String(describing: error))))
             }
-            // Turned off while the read was running.
-            guard states[id] != nil else { return }
+            // Turned off (and maybe on again) while the read was running.
+            guard generation[id, default: 0] == started, states[id] != nil else { return }
             states[id]?.apply(result)
             states[id]?.isLoading = false
             if case .success(let usage) = result {

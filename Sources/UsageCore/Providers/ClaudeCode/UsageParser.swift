@@ -47,10 +47,19 @@ public enum UsageParser {
         return snap
     }
 
-    /// Plan from the banner line, e.g. "Opus 5.5 · Claude Max" → "Max".
+    /// Plan from the banner line, e.g. "Opus 5.5 · Claude Max" → "Max". In the stream
+    /// fallback the spaces are cursor moves and disappear ("·ClaudeMax").
     static func plan(in text: String) -> String? {
-        guard let r = text.range(of: #"·\s*Claude\s+(Max|Pro|Team|Enterprise)\b"#, options: .regularExpression) else { return nil }
-        return text[r].components(separatedBy: .whitespaces).last
+        guard let r = text.range(of: #"·\s*Claude\s*(Max|Pro|Team|Enterprise)\b"#, options: .regularExpression) else { return nil }
+        return ["Max", "Pro", "Team", "Enterprise"].first { text[r].hasSuffix($0) }
+    }
+
+    /// Cuts the "What's contributing to your limits usage?" section. Claude Code builds
+    /// it from local session logs (skills, subagents, MCP servers used), so it isn't kept
+    /// or shown.
+    public static func withoutLocalStats(_ text: String) -> String {
+        guard let r = text.range(of: "What's contributing", options: .caseInsensitive) else { return text }
+        return String(text[..<r.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     static func isSessionHeader(_ l: String) -> Bool {

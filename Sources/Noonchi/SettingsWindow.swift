@@ -74,19 +74,16 @@ private struct GeneralSettings: View {
                     Text(s.highlightHigh)
                     Text(s.highlightHint)
                 }
-                LabeledContent(s.barColor) {
-                    HStack(spacing: 8) {
-                        swatch(nil, Color.primary.opacity(0.6), help: s.systemColor)
-                        ForEach(AppSettings.presetColors, id: \.hex) { preset in
-                            swatch(preset.hex, Color(hex: preset.hex) ?? .gray, help: preset.name)
-                        }
-                        ColorPicker("", selection: settings.barColorBinding, supportsOpacity: false)
-                            .labelsHidden()
+                Picker(s.barColor, selection: $settings.barColorHex) {
+                    Text(s.systemColor).tag(String?.none)
+                    ForEach(barColorChoices, id: \.hex) { choice in
+                        Label { Text(choice.name) } icon: { Image(nsImage: Self.dot(choice.hex)) }
+                            .tag(Optional(choice.hex))
                     }
                 }
             }
 
-            Section(s.general) {
+            Section {
                 Picker(s.languageLabel, selection: $settings.language) {
                     ForEach(AppLanguage.allCases) { Text($0.displayName).tag($0) }
                 }
@@ -100,17 +97,22 @@ private struct GeneralSettings: View {
         .formStyle(.grouped)
     }
 
-    private func swatch(_ hex: String?, _ color: Color, help: String) -> some View {
-        let selected = settings.barColorHex?.uppercased() == hex?.uppercased()
-        return Button {
-            settings.barColorHex = hex
-        } label: {
-            Circle().fill(color)
-                .frame(width: 18, height: 18)
-                .overlay(Circle().stroke(Color.primary, lineWidth: selected ? 2 : 0).padding(-3))
+    /// Presets, plus a color kept from v0.3 that isn't one of them.
+    private var barColorChoices: [(name: String, hex: String)] {
+        let presets = AppSettings.presetColors
+        guard let hex = settings.barColorHex, !presets.contains(where: { $0.hex.caseInsensitiveCompare(hex) == .orderedSame })
+        else { return presets }
+        return presets + [(s.other, hex)]
+    }
+
+    /// Menus render SwiftUI shapes poorly; a small image keeps the color.
+    private static func dot(_ hex: String) -> NSImage {
+        let image = NSImage(size: NSSize(width: 10, height: 10), flipped: false) { rect in
+            (NSColor(Color(hex: hex) ?? .gray)).setFill()
+            NSBezierPath(ovalIn: rect).fill()
+            return true
         }
-        .buttonStyle(.plain)
-        .help(help)
+        return image
     }
 
     private func setLaunchAtLogin(_ on: Bool) {
@@ -168,7 +170,7 @@ private struct ServiceSettings: View {
         return Button {
             settings.toggle(id, window)
         } label: {
-            Text(MenuBarFormatter.shortLabel(forID: window))
+            Text(s.windowLabel(id: window))
                 .font(.system(size: 11))
                 .padding(.horizontal, 8).padding(.vertical, 2)
                 .foregroundStyle(on ? Color(nsColor: .windowBackgroundColor) : .primary)
@@ -176,6 +178,7 @@ private struct ServiceSettings: View {
                 .overlay(Capsule().stroke(Color.primary.opacity(0.25), lineWidth: on ? 0 : 0.5))
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     /// "/Users/me/.local/bin/claude" → "~/.local/bin/claude"

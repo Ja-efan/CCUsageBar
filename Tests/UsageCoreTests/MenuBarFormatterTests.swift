@@ -72,6 +72,14 @@ final class MenuBarFormatterTests: XCTestCase {
         XCTAssertEqual(UsageWindow.Kind.rolling(minutes: 43200).shortLabel, "30d")
     }
 
+    func testKindFromID() {
+        XCTAssertEqual(UsageWindow.kind(forID: "5h"), .rolling(minutes: 300))
+        XCTAssertEqual(UsageWindow.kind(forID: "week"), .rolling(minutes: 10080))
+        XCTAssertEqual(UsageWindow.kind(forID: "30d"), .rolling(minutes: 43200))
+        XCTAssertEqual(UsageWindow.kind(forID: "model:Fable"), .model(name: "Fable", minutes: nil))
+        XCTAssertNil(UsageWindow.kind(forID: "bogus"))
+    }
+
     func testWindowSortOrder() {
         let ids = ["model:Fable", "30d", "week", "5h", "90m", "bogus"]
         XCTAssertEqual(ids.sorted { UsageWindow.sortKey(id: $0) < UsageWindow.sortKey(id: $1) },
@@ -87,6 +95,16 @@ final class SettingsMigrationTests: XCTestCase {
         XCTAssertEqual(new["menuBar.mode"] as? String, "custom")
         XCTAssertEqual(new["menuBar.items"] as? [String], ["claude:5h", "claude:week", "claude:model:Fable"])
         XCTAssertEqual(new["menuBar.labeled"] as? Bool, false)
+    }
+
+    func testPickedItemsWithoutStyleKeepV03Labels() {
+        let new = SettingsMigration.toV2(["menuBarItems": ["session"]], now: now)
+        XCTAssertEqual(new["menuBar.labeled"] as? Bool, true)
+    }
+
+    func testDuplicateKnownModelsDoNotCrash() {
+        let new = SettingsMigration.toV2(["knownModels": ["Fable", "Fable"]], now: now)
+        XCTAssertEqual(new["knownWindows"] as? [String: [String: Date]], ["claude": ["model:Fable": now]])
     }
 
     func testUntouchedSettingsStayDefault() {

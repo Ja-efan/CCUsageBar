@@ -112,7 +112,7 @@ final class AppSettings: ObservableObject {
         if let i = menuBarItems.firstIndex(of: key) { menuBarItems.remove(at: i) } else { menuBarItems.append(key) }
     }
 
-    /// Records the windows in a reading and forgets ones not seen for a week.
+    /// Records the windows in a reading and forgets stale ones.
     func registerWindows(_ ids: [String], for id: ProviderID, now: Date = Date()) {
         var seen = knownWindows[id.rawValue] ?? [:]
         for w in ids { seen[w] = now }
@@ -132,18 +132,12 @@ final class AppSettings: ObservableObject {
 
     // MARK: Colors
 
-    var barColorBinding: Binding<Color> {
-        Binding(get: { self.barColorHex.flatMap(Color.init(hex:)) ?? .accentColor },
-                set: { self.barColorHex = $0.hexString })
-    }
-
-    /// Bar fill: orange/red when high and highlighting is on, else the chosen color.
+    /// Bar fill: orange/red when high and highlighting is on, else the chosen color, else gray.
     func barColor(for percent: Double) -> Color {
         Self.color(for: Highlight(percent: percent, enabled: highlightHigh))
             ?? barColorHex.flatMap(Color.init(hex:)) ?? Color.primary.opacity(0.6)
     }
 
-    /// Percent text: only colored when high.
     func textColor(for percent: Double) -> Color {
         Self.color(for: Highlight(percent: percent, enabled: highlightHigh)) ?? .primary
     }

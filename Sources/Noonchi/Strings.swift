@@ -63,7 +63,7 @@ struct Strings {
     var services: String { t("서비스", "Services") }
     var languageLabel: String { t("언어", "Language") }
     var menuBar: String { t("상단 바", "Menu bar") }
-    var menuBarMode: String { t("표시 방식", "Show") }
+    var menuBarMode: String { t("표시 방식", "Display") }
     var modeAuto: String { t("자동", "Automatic") }
     var modeCustom: String { t("직접 선택", "Custom") }
     var customHint: String { t("서비스 탭에서 항목을 고르세요.", "Pick items in the Services tab.") }
@@ -75,11 +75,14 @@ struct Strings {
     var iconRing: String { t("링", "Ring") }
     var colors: String { t("색상", "Colors") }
     var highlightHigh: String { t("높을 때만 강조", "Highlight high usage") }
-    var highlightHint: String { t("80% 주황 · 95% 빨강, 나머지는 막대 색", "Orange at 80%, red at 95%; otherwise the bar color") }
+    var highlightHint: String { t("80% 주황 · 95% 빨강", "Orange at 80%, red at 95%") }
     var barColor: String { t("막대 색", "Bar color") }
     var systemColor: String { t("시스템", "System") }
-    var launchAtLogin: String { t("로그인 시 실행", "Open at login") }
+    var launchAtLogin: String { t("로그인 시 열기", "Open at login") }
     var approveInSystemSettings: String { t("시스템 설정에서 허용하기…", "Allow in System Settings…") }
+    var other: String { t("기타", "Other") }
+    func used(_ percent: Int) -> String { t("\(percent)% 사용", "\(percent)% used") }
+    func resetsAt(_ time: String) -> String { t("\(time) 초기화", "resets \(time)") }
     var notInstalled: String { t("설치되지 않음", "Not installed") }
     var menuBarItems: String { t("상단 바 항목", "Menu bar items") }
     var afterFirstRefresh: String { t("첫 조회 뒤에 나타나요", "Appear after the first refresh") }
@@ -88,14 +91,22 @@ struct Strings {
         return t("\(m)분마다", "every \(m) min")
     }
 
-    /// "이 속도면 3:10 PM에 5시간 한도 도달"
+    /// "이 속도면 3:10 PM쯤 5시간 한도에 닿아요"
     func pace(_ label: String, _ when: ResetDisplay) -> String {
         let time = reset(when)
-        if language == .korean { return "이 속도면 \(time)에 \(label) 한도 도달" }
         switch when {
-        case .inMinutes, .date: return "At this pace, the \(label) limit hits \(time)"
-        case .time, .weekdayTime: return "At this pace, the \(label) limit hits at \(time)"
+        case .inMinutes(0):
+            return t("이 속도면 곧 \(label) 한도에 닿아요", "On pace to hit the \(label) limit soon")
+        case .inMinutes:
+            return t("이 속도면 \(time)쯤 \(label) 한도에 닿아요", "On pace to hit the \(label) limit \(time)")
+        case .time, .weekdayTime, .date:
+            return t("이 속도면 \(time)쯤 \(label) 한도에 닿아요", "On pace to hit the \(label) limit by \(time)")
         }
+    }
+
+    /// Same wording as the panel row, for a window known only by ID.
+    func windowLabel(id: String) -> String {
+        UsageWindow.kind(forID: id).map(windowLabel) ?? id
     }
 
     func error(_ e: ProviderError) -> String {

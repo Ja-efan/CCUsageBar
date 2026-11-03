@@ -39,8 +39,9 @@ final class CodexProviderTests: XCTestCase {
     }
 
     func testRawOutputDropsAccountID() {
-        let raw = CodexProvider.redacted(Data(#"{"accountId":"acct-123","rateLimits":{}}"#.utf8))
+        let raw = CodexProvider.redacted(Data(#"{"accountId":"acct-123","userEmail":"a@b.c","rateLimits":{}}"#.utf8))
         XCTAssertFalse(raw.contains("acct-123"))
+        XCTAssertFalse(raw.contains("a@b.c"))
         XCTAssertTrue(raw.contains("rateLimits"))
     }
 

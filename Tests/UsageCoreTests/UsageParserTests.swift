@@ -67,3 +67,19 @@ final class RealOutputTests: XCTestCase {
         XCTAssertEqual(snap.plan, "Max")
     }
 }
+
+final class PlanTests: XCTestCase {
+    func testPlanWithAndWithoutSpaces() {
+        XCTAssertEqual(UsageParser.plan(in: "▝▜██████▀  Opus 5.5 · Claude Max"), "Max")
+        XCTAssertEqual(UsageParser.plan(in: "▝▜██████▀Opus5.5·ClaudePro"), "Pro")
+        XCTAssertNil(UsageParser.plan(in: "Claude Code v2.1.310"))
+    }
+}
+
+final class LocalStatsTests: XCTestCase {
+    func testContributingSectionIsCut() {
+        let text = "Current session\n37% used\nWhat's contributing to your limits usage?\nSkills  % of usage\n/emil-design-eng 1%"
+        XCTAssertEqual(UsageParser.withoutLocalStats(text), "Current session\n37% used")
+        XCTAssertEqual(UsageParser.withoutLocalStats("Current session\n37% used"), "Current session\n37% used")
+    }
+}

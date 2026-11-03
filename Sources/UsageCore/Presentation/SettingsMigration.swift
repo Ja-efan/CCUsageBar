@@ -14,8 +14,9 @@ public enum SettingsMigration {
             let order = ["session", "week"]
             let sorted = items.sorted { (order.firstIndex(of: $0) ?? 2, $0) < (order.firstIndex(of: $1) ?? 2, $1) }
             new["menuBar.items"] = sorted.map { "claude:" + ($0 == "session" ? "5h" : $0) }
-        }
-        if let style = old["labelStyle"] as? String {
+            // v0.3 showed labels unless turned off; v2's default is off.
+            new["menuBar.labeled"] = (old["labelStyle"] as? String ?? "labeled") == "labeled"
+        } else if let style = old["labelStyle"] as? String {
             new["menuBar.labeled"] = style == "labeled"
         }
         if old["barColorMode"] as? String == "fixed" {
@@ -23,7 +24,7 @@ public enum SettingsMigration {
             new["highlightHigh"] = old["warnHighUsage"] as? Bool ?? true
         }
         if let models = old["knownModels"] as? [String], !models.isEmpty {
-            new["knownWindows"] = ["claude": Dictionary(uniqueKeysWithValues: models.map { ("model:\($0)", now) })]
+            new["knownWindows"] = ["claude": Dictionary(models.map { ("model:\($0)", now) }, uniquingKeysWith: { a, _ in a })]
         }
         return new
     }

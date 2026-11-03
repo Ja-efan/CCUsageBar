@@ -36,20 +36,22 @@ final class ClaudeCodeProviderTests: XCTestCase {
 }
 
 final class TrustPromptTests: XCTestCase {
-    private let prompt = """
-    Quick safety check: Is this a project you created or one you trust?
-    Security guide
-    %@No, exit
-    %@Yes, I trust this folder
-    Enter to confirm · Esc to cancel
-    """
-
-    func testMovesDownWhenNoIsSelected() {
-        XCTAssertEqual(ClaudeCodeProvider.trustPromptKey(String(format: prompt, "❯ ", "")), "\u{1b}[B")
+    /// The rendered screen Claude Code 2.1.310 shows for a new folder.
+    private func recorded() throws -> String {
+        let url = try XCTUnwrap(Bundle.module.url(forResource: "trust-prompt-2.1.310", withExtension: "txt", subdirectory: "Fixtures"))
+        return try String(contentsOf: url, encoding: .utf8)
     }
 
-    func testConfirmsWhenYesIsSelected() {
-        XCTAssertEqual(ClaudeCodeProvider.trustPromptKey(String(format: prompt, "", "❯ ")), "\r")
+    func testMovesDownWhenNoIsSelected() throws {
+        XCTAssertEqual(ClaudeCodeProvider.trustPromptKey(try recorded()), "\u{1b}[B")
+    }
+
+    func testConfirmsWhenYesIsSelected() throws {
+        // What the same screen shows after one Down (also captured live).
+        let moved = try recorded()
+            .replacingOccurrences(of: "❯ No, exit", with: "No, exit")
+            .replacingOccurrences(of: "Yes, I trust this folder", with: "❯ Yes, I trust this folder")
+        XCTAssertEqual(ClaudeCodeProvider.trustPromptKey(moved), "\r")
     }
 
     func testIgnoresMainPrompt() {
