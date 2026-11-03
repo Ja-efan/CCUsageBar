@@ -5,3 +5,6 @@ dist/
 xcuserdata/
 DerivedData/
 .DS_Store
+
+# Design notes stay local
+docs/design/
