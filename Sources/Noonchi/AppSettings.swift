@@ -13,20 +13,6 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     }
 }
 
-/// How percentages appear in the menu bar.
-enum LabelStyle: String, CaseIterable, Identifiable {
-    case labeled   // 5h 42% · 7d 10%
-    case compact   // 42% · 10%
-    var id: String { rawValue }
-}
-
-/// How usage bars and percentages are colored.
-enum BarColorMode: String, CaseIterable, Identifiable {
-    case byUsage   // green / orange / red by threshold
-    case fixed     // one color chosen by the user
-    var id: String { rawValue }
-}
-
 /// Items that can be shown in the menu bar.
 enum MenuBarItem: Hashable {
     case session
@@ -70,7 +56,7 @@ final class AppSettings: ObservableObject {
 
     @Published var language: AppLanguage { didSet { defaults.set(language.rawValue, forKey: Key.language) } }
     @Published var menuItemKeys: Set<String> { didSet { defaults.set(Array(menuItemKeys), forKey: Key.menuItems) } }
-    @Published var labelStyle: LabelStyle { didSet { defaults.set(labelStyle.rawValue, forKey: Key.labelStyle) } }
+    @Published var labelStyle: MenuBarLabelStyle { didSet { defaults.set(labelStyle.rawValue, forKey: Key.labelStyle) } }
     @Published var colorMode: BarColorMode { didSet { defaults.set(colorMode.rawValue, forKey: Key.colorMode) } }
     @Published var barColorHex: String { didSet { defaults.set(barColorHex, forKey: Key.barColor) } }
     @Published var warnHighUsage: Bool { didSet { defaults.set(warnHighUsage, forKey: Key.warnHigh) } }
@@ -82,7 +68,7 @@ final class AppSettings: ObservableObject {
         Self.migrateFromOldBundleID(into: d)
         language = d.string(forKey: Key.language).flatMap(AppLanguage.init) ?? .systemDefault
         menuItemKeys = Set(d.stringArray(forKey: Key.menuItems) ?? ["session", "week"])
-        labelStyle = d.string(forKey: Key.labelStyle).flatMap(LabelStyle.init) ?? .labeled
+        labelStyle = d.string(forKey: Key.labelStyle).flatMap(MenuBarLabelStyle.init) ?? .labeled
         colorMode = d.string(forKey: Key.colorMode).flatMap(BarColorMode.init) ?? .byUsage
         barColorHex = d.string(forKey: Key.barColor) ?? "#D97757"
         warnHighUsage = d.object(forKey: Key.warnHigh) as? Bool ?? true
@@ -129,31 +115,28 @@ final class AppSettings: ObservableObject {
     }
 
     func color(for percent: Int?) -> Color {
-        guard let p = percent else { return .gray }
-        switch colorMode {
-        case .byUsage:
-            return p >= 90 ? .red : (p >= 70 ? .orange : .green)
-        case .fixed:
-            return (warnHighUsage && p >= 90) ? .red : barColor
+        switch UsageTone(percent: percent, mode: colorMode, warnHigh: warnHighUsage) {
+        case .unknown: return .gray
+        case .low: return .green
+        case .elevated: return .orange
+        case .high: return .red
+        case .custom: return barColor
         }
     }
 
     // MARK: Menu bar label
 
-    func menuBarLabel(snapshot: UsageSnapshot, hasLoaded: Bool) -> String {
-        guard hasLoaded else { return "CC …" }
-        guard snapshot.hasUsage else { return "CC ⚠︎" }
-        func pct(_ v: Int?) -> String { v.map { "\($0)%" } ?? "–" }
-        let labeled = labelStyle == .labeled
+    /// Selected menu bar windows, in display order.
+    var menuBarWindowIDs: [String] {
+        var ids: [String] = []
+        if isShown(.session) { ids.append("5h") }
+        if isShown(.week) { ids.append("week") }
+        ids += knownModels.filter { isShown(.model($0)) }.map { "model:\($0)" }
+        return ids
+    }
 
-        var parts: [String] = []
-        if isShown(.session) { parts.append(labeled ? "5h \(pct(snapshot.sessionPercent))" : pct(snapshot.sessionPercent)) }
-        if isShown(.week) { parts.append(labeled ? "7d \(pct(snapshot.weekPercent))" : pct(snapshot.weekPercent)) }
-        for name in knownModels where isShown(.model(name)) {
-            let p = snapshot.modelLimit(named: name)?.percent
-            parts.append(labeled ? "\(name) \(pct(p))" : pct(p))
-        }
-        return parts.isEmpty ? "CC" : parts.joined(separator: " · ")
+    func menuBarLabel(usage: ProviderUsage?, hasLoaded: Bool) -> String {
+        MenuBarFormatter.label(usage: usage, hasLoaded: hasLoaded, windowIDs: menuBarWindowIDs, style: labelStyle)
     }
 }
 

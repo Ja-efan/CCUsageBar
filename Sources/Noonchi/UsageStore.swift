@@ -4,6 +4,8 @@ import UsageCore
 @MainActor
 final class UsageStore: ObservableObject {
     @Published private(set) var snapshot = UsageSnapshot()
+    /// Last good reading; kept when a refresh fails, like `snapshot`'s numbers.
+    @Published private(set) var claudeUsage: ProviderUsage?
     @Published private(set) var isLoading = false
     @Published private(set) var hasLoaded = false
     @Published var contentHeight: CGFloat = 0
@@ -31,7 +33,9 @@ final class UsageStore: ObservableObject {
         Task {
             let snap: UsageSnapshot
             do {
-                snap = UsageSnapshot(try await claude.fetch())
+                let usage = try await claude.fetch()
+                claudeUsage = usage
+                snap = UsageSnapshot(usage)
             } catch let failure as ProviderFailure {
                 snap = UsageSnapshot(failure)
             } catch {

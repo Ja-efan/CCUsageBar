@@ -47,11 +47,11 @@ struct SettingsView: View {
                     Text(s.modelsHint).font(.caption).foregroundStyle(.secondary)
                 }
                 Picker(s.labelStyle, selection: $settings.labelStyle) {
-                    Text(s.styleLabeled).tag(LabelStyle.labeled)
-                    Text(s.styleCompact).tag(LabelStyle.compact)
+                    Text(s.styleLabeled).tag(MenuBarLabelStyle.labeled)
+                    Text(s.styleCompact).tag(MenuBarLabelStyle.compact)
                 }
                 LabeledContent(s.preview) {
-                    Text(settings.menuBarLabel(snapshot: store.snapshot, hasLoaded: store.hasLoaded))
+                    Text(settings.menuBarLabel(usage: store.claudeUsage, hasLoaded: store.hasLoaded))
                         .font(.system(.body, design: .rounded).monospacedDigit())
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(Color.primary.opacity(0.08), in: Capsule())
