@@ -21,14 +21,15 @@ Claude Code의 **5시간 세션 사용률**과 **주간 사용률**을 macOS 메
 
 ## 동작 방식
 
-- 5분마다 백그라운드에서 `claude`를 가상 터미널(PTY)로 실행해 `/usage`를 보내고, 출력을 읽은 뒤 바로 종료합니다.
+- 5분마다(그리고 잠자기에서 깨어날 때) 백그라운드에서 `claude`를 가상 터미널(PTY)로 실행해 `/usage`를 보내고, 갱신이 끝난 화면을 읽은 뒤 바로 종료합니다.
+- 조회에 실패하면 마지막으로 읽은 값을 그대로 두고 오류만 표시합니다.
 - 모델을 호출하지 않으므로 **토큰을 쓰지 않습니다.**
 - 키체인이나 Anthropic API를 직접 건드리지 않고, Claude Code가 보여주는 값을 그대로 씁니다.
 - Claude Code 작업 폴더는 `~/Library/Application Support/CCUsageBar`를 사용합니다.
 
 ## 요구 사항
 
-- macOS 14 이상
+- macOS 14 이상, Apple Silicon(arm64)
 - Claude Code 설치 및 로그인 (Pro/Max 구독)
 - 빌드 시 Xcode 또는 Command Line Tools (Swift 5.9+)
 
@@ -62,7 +63,8 @@ Xcode에서 열려면 `open Package.swift`.
 Sources/
   UsageCore/            UI 없는 핵심 로직 (테스트 대상)
     ClaudeRunner.swift    PTY로 claude 실행 및 /usage 캡처
-    TerminalText.swift    ANSI 이스케이프 제거
+    TerminalScreen.swift  PTY 출력을 가상 화면에 재현 (부분 갱신 반영)
+    TerminalText.swift    ANSI 이스케이프 제거 (화면 재현 실패 시 대체 경로)
     UsageParser.swift     사용률·초기화 시간 파싱
     UsageSnapshot.swift   모델, 에러 정의
   CCUsageBar/           SwiftUI 메뉴 막대 앱 (패널, 설정 창, 다국어 문구)

@@ -26,12 +26,20 @@ public struct ClaudeRunner: Sendable {
     public func fetch() -> UsageSnapshot {
         guard let claude = Self.findClaude() else { return UsageSnapshot(error: .claudeNotFound) }
         let (raw, err) = capture(claudePath: claude)
-        let cleaned = TerminalText.clean(raw)
-        saveDebug(raw: raw, cleaned: cleaned)
-        var snap = UsageParser.parse(cleaned)
+        // Read the final screen; fall back to the stream if the view scrolled off.
+        let screen = TerminalScreen.render(raw, columns: Self.columns, rows: Self.rows).text
+        var snap = UsageParser.parse(screen)
+        if !snap.hasUsage {
+            let fromStream = UsageParser.parse(TerminalText.clean(raw))
+            if fromStream.hasUsage { snap = fromStream }
+        }
+        saveDebug(raw: raw, cleaned: snap.raw)
         if let err { snap.error = err }
         return snap
     }
+
+    static let columns = 140
+    static let rows = 50
 
     /// Last captured output, for troubleshooting parser issues.
     public var debugFiles: (raw: String, cleaned: String) {
@@ -46,18 +54,26 @@ public struct ClaudeRunner: Sendable {
     func capture(claudePath: String) -> (String, UsageError?) {
         try? FileManager.default.createDirectory(atPath: workDirectory, withIntermediateDirectories: true)
 
+        // Build every C string before fork: the child of a multithreaded process may only
+        // make async-signal-safe calls, and allocating there can deadlock on a held malloc lock.
+        let home = NSHomeDirectory()
+        var env = ProcessInfo.processInfo.environment
+        env["TERM"] = "xterm-256color"
+        env["HOME"] = home
+        env["PATH"] = "\(home)/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+        let path = strdup(claudePath)
+        let dir = strdup(workDirectory)
+        let argv: [UnsafeMutablePointer<CChar>?] = [strdup(claudePath), nil]
+        let envp: [UnsafeMutablePointer<CChar>?] = env.map { strdup("\($0.key)=\($0.value)") } + [nil]
+        defer { ([path, dir] + argv + envp).forEach { free($0) } }
+
         var master: Int32 = 0
-        var ws = winsize(ws_row: 50, ws_col: 140, ws_xpixel: 0, ws_ypixel: 0)
+        var ws = winsize(ws_row: UInt16(Self.rows), ws_col: UInt16(Self.columns), ws_xpixel: 0, ws_ypixel: 0)
         let pid = forkpty(&master, nil, nil, &ws)
         if pid < 0 { return ("", .launchFailed) }
         if pid == 0 {
-            chdir(workDirectory)
-            let home = NSHomeDirectory()
-            setenv("TERM", "xterm-256color", 1)
-            setenv("HOME", home, 1)
-            setenv("PATH", "\(home)/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin", 1)
-            let args: [UnsafeMutablePointer<CChar>?] = [strdup(claudePath), nil]
-            execv(claudePath, args)
+            chdir(dir)
+            execve(path, argv, envp)
             _exit(127)
         }
 
@@ -79,6 +95,9 @@ public struct ClaudeRunner: Sendable {
             }
         }
         func text() -> String { TerminalText.clean(String(decoding: buffer, as: UTF8.self)) }
+        func screen() -> String {
+            TerminalScreen.render(String(decoding: buffer, as: UTF8.self), columns: Self.columns, rows: Self.rows).text
+        }
 
         while Date().timeIntervalSince(start) < timeout {
             drain()
@@ -99,8 +118,11 @@ public struct ClaudeRunner: Sendable {
                 }
             } else {
                 let since = Date().timeIntervalSince(sentAt)
-                let found = TerminalText.count(TerminalText.usageSection(t), pattern: "\\d{1,3}\\s*%") >= 2
-                if (found && since > 2.5) || since > 12 { usleep(500_000); break }
+                // `/usage` first shows cached numbers with "Refreshing…", then overwrites
+                // them in place. Wait until the refresh is gone from the screen.
+                let s = screen()
+                let found = TerminalText.count(s, pattern: "\\d{1,3}\\s*%\\s*used") >= 2 && !s.contains("Refreshing")
+                if (found && since > 1.5) || since > 12 { usleep(300_000); break }
             }
         }
 

@@ -44,6 +44,17 @@ public struct UsageSnapshot: Equatable, Sendable {
     public func modelLimit(named name: String) -> ModelLimit? {
         modelLimits.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }
     }
+
+    /// The snapshot to show after `new` arrives. A failed read keeps the last good
+    /// numbers (and their time) and only adds the error, so a transient timeout
+    /// doesn't blank the menu bar.
+    public func updated(with new: UsageSnapshot) -> UsageSnapshot {
+        guard !new.hasUsage, hasUsage else { return new }
+        var kept = self
+        kept.error = new.error
+        kept.raw = new.raw
+        return kept
+    }
 }
 
 public enum UsageError: Equatable, Sendable {
