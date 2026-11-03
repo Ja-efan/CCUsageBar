@@ -1,111 +1,113 @@
 # Noonchi (눈치)
 
-**한국어** | [English](README.en.md)
+**English** | [한국어](README.ko.md)
 
-Claude Code의 **5시간 세션 사용률**과 **주간 사용률**을 macOS 메뉴 막대에 숫자로 표시하는 앱입니다. 패널에서는 Fable 같은 **모델별 주간 한도**도 함께 보여줍니다.
+*Noonchi* (눈치) is the Korean knack for reading the room. This app reads your Claude Code usage limits so you can see them before you hit them.
+
+Noonchi shows Claude Code's **5-hour session usage** and **weekly usage** as numbers in the macOS menu bar. The panel also shows **per-model weekly caps** such as Fable.
 
 ```
 5h 42% · 7d 18%
 ```
 
-클릭하면 항목별 사용률 막대와 초기화 시간이 나옵니다. 내용이 길면 스크롤되고, 설정·새로고침·종료 버튼은 아래에 고정됩니다.
+Click it to see a usage bar and reset time for each limit. Long content scrolls, and the settings, refresh, and quit buttons stay pinned at the bottom.
 
-## 특징
+## Features
 
-- **숫자가 상단 바에 바로 보입니다.** 아이콘을 눌러 패널을 열 필요가 없습니다.
-- **인증 정보를 읽지 않습니다.** 키체인, 브라우저 쿠키, `~/.claude`의 인증 파일, 대화 로그 어디에도 접근하지 않습니다. 공식 `claude` CLI를 실행해 `/usage` 화면을 읽을 뿐입니다.
-- **앱이 직접 네트워크를 쓰지 않습니다.** 서버와 통신하는 것은 Claude Code CLI이고, 앱에는 네트워크 코드나 자동 업데이트가 없습니다.
-- **화면 갱신까지 반영해 읽습니다.** `/usage`는 캐시 값을 먼저 그린 뒤 바뀐 숫자만 덮어씁니다. Noonchi는 출력을 가상 터미널 화면에 다시 그려 최종 값을 읽습니다. 실측 30회 중 23회에서 이전 방식(출력 문자열만 읽기)이 갱신 전 값을 읽었고, 지금 방식은 30회 모두 Claude Code 화면과 일치했습니다.
-- **작습니다.** 앱 코드는 Swift 약 1,200줄이고, 앱 메모리는 약 24MB입니다(1시간 측정, 증가 없음).
+- **The numbers are right in the menu bar.** You don't have to open a panel to see them.
+- **It never reads your credentials.** No Keychain, no browser cookies, no auth files under `~/.claude`, no conversation logs. It runs the official `claude` CLI and reads the `/usage` screen.
+- **The app itself makes no network requests.** Only the Claude Code CLI talks to the server. The app has no networking code and no auto-updater.
+- **It reads the screen after it finishes updating.** `/usage` first draws cached numbers, then overwrites only the digits that changed. Noonchi replays the output on an emulated terminal screen and reads the final values. In 30 real captures, the old approach (reading the output as plain text) returned the pre-refresh value 23 times; the current approach matched Claude Code's screen all 30 times.
+- **It's small.** About 1,200 lines of Swift, and about 24 MB of app memory (measured over one hour, no growth).
 
-측정 방법과 원자료: [`docs/benchmark.md`](docs/benchmark.md)
+Method and data: [`docs/benchmark.md`](docs/benchmark.md) (in Korean)
 
-알아둘 점:
-- 조회할 때마다 Claude Code를 한 번 실행하므로 CPU를 1회 약 3.5초 씁니다(5분 간격이면 1시간에 약 40초).
-- Claude Code가 Noonchi 작업 폴더(`~/Library/Application Support/Noonchi`)를 `~/.claude.json`의 프로젝트 목록에 기록합니다. Noonchi가 직접 쓰는 것은 아닙니다.
-- 자동 업데이트가 없습니다. Claude Code 화면 형식이 바뀌면 직접 업데이트해야 합니다.
+Good to know:
+- Each refresh launches Claude Code once, which costs about 3.5 s of CPU (about 40 s per hour at the default 5-minute interval).
+- Claude Code records Noonchi's working folder (`~/Library/Application Support/Noonchi`) in the project list in `~/.claude.json`. Noonchi doesn't write that file itself.
+- There are no automatic updates. If Claude Code changes its screen format, you'll need to update Noonchi yourself.
 
-## 설정
+## Settings
 
-패널 아래 톱니바퀴 버튼을 누르면 설정 창이 열립니다. 설정은 자동 저장됩니다.
+Click the gear button at the bottom of the panel to open Settings. Changes are saved automatically.
 
-| 항목 | 옵션 |
+| Setting | Options |
 |---|---|
-| 언어 | 한국어 / English (기본값은 시스템 언어) |
-| 상단 바 표시 | 5시간 세션, 주간(전체 모델), 모델별 주간 한도(예: Fable)를 원하는 대로 조합. 아무것도 고르지 않으면 `CC`만 표시 |
-| 표시 형식 | 라벨 포함 `5h 42% · 7d 10% · Fable 2%` / 숫자만 `42% · 10% · 2%` |
-| 막대 색상 | 사용률에 따라 자동(70% 주황, 90% 빨강) 또는 단색(프리셋 7가지 + 직접 선택). 단색일 때 90% 이상 빨간색 경고는 켜고 끌 수 있음 |
+| Language | 한국어 / English (defaults to the system language) |
+| Menu bar | Any combination of the 5-hour session, weekly (all models), and per-model weekly caps (e.g. Fable). With nothing selected, only `CC` is shown |
+| Format | With labels `5h 42% · 7d 10% · Fable 2%` / numbers only `42% · 10% · 2%` |
+| Bar color | By usage (orange at 70%, red at 90%) or a single color (7 presets or a custom color). With a single color, the red warning at 90% can be turned on or off |
 
-## 동작 방식
+## How it works
 
-- 5분마다(그리고 잠자기에서 깨어날 때) 백그라운드에서 `claude`를 가상 터미널(PTY)로 실행해 `/usage`를 보내고, 갱신이 끝난 화면을 읽은 뒤 바로 종료합니다.
-- 조회에 실패하면 마지막으로 읽은 값을 그대로 두고 오류만 표시합니다.
-- 모델을 호출하지 않으므로 **토큰을 쓰지 않습니다.**
-- 키체인이나 Anthropic API를 직접 건드리지 않고, Claude Code가 보여주는 값을 그대로 씁니다.
-- Claude Code 작업 폴더는 `~/Library/Application Support/Noonchi`를 사용합니다.
+- Every 5 minutes (and on wake from sleep), it runs `claude` in a pseudo-terminal (PTY) in the background, sends `/usage`, reads the screen once the refresh is done, and quits it.
+- If a refresh fails, it keeps the last values it read and only shows the error.
+- It never calls a model, so **it uses no tokens.**
+- It doesn't touch the Keychain or the Anthropic API directly; it uses the values Claude Code shows.
+- Claude Code runs in `~/Library/Application Support/Noonchi`.
 
-## 요구 사항
+## Requirements
 
-- macOS 14 이상, Apple Silicon(arm64)
-- Claude Code 설치 및 로그인 (Pro/Max 구독)
-- 빌드 시 Xcode 또는 Command Line Tools (Swift 5.9+)
+- macOS 14 or later, Apple Silicon (arm64)
+- Claude Code installed and signed in (Pro/Max subscription)
+- Xcode or the Command Line Tools to build (Swift 5.9+)
 
-`claude` 위치는 `~/.local/bin`, `~/.claude/local`, `/opt/homebrew/bin`, `/usr/local/bin` 순서로 찾습니다. 다른 곳에 있다면 `NOONCHI_CLAUDE_PATH` 환경 변수로 지정하세요.
+Noonchi looks for `claude` in `~/.local/bin`, `~/.claude/local`, `/opt/homebrew/bin`, and `/usr/local/bin`, in that order. If yours is elsewhere, set the `NOONCHI_CLAUDE_PATH` environment variable.
 
-## 설치
+## Install
 
 ```bash
 git clone https://github.com/Ja-efan/Noonchi.git
 cd Noonchi
-make install      # 빌드 → ~/Applications 설치 → 실행
+make install      # build → install to ~/Applications → launch
 ```
 
-로그인 시 자동 실행: 시스템 설정 > 일반 > 로그인 항목에 `Noonchi` 추가.
+To start it at login, add `Noonchi` under System Settings > General > Login Items.
 
-## 개발
+## Development
 
-| 명령 | 설명 |
+| Command | Description |
 |---|---|
-| `make build` | 디버그 빌드 |
-| `make test` | 파서 단위 테스트 |
-| `make app` | `dist/Noonchi.app` 및 zip 생성 |
-| `make run` | 앱 빌드 후 실행 |
-| `make clean` | 빌드 결과 삭제 |
+| `make build` | Debug build |
+| `make test` | Parser unit tests |
+| `make app` | Build `dist/Noonchi.app` and a zip |
+| `make run` | Build the app and run it |
+| `make clean` | Remove build output |
 
-Xcode에서 열려면 `open Package.swift`.
+To open it in Xcode, run `open Package.swift`.
 
-### 구조
+### Layout
 
 ```
 Sources/
-  UsageCore/            UI 없는 핵심 로직 (테스트 대상)
-    ClaudeRunner.swift    PTY로 claude 실행 및 /usage 캡처
-    TerminalScreen.swift  PTY 출력을 가상 화면에 재현 (부분 갱신 반영)
-    TerminalText.swift    ANSI 이스케이프 제거 (화면 재현 실패 시 대체 경로)
-    UsageParser.swift     사용률·초기화 시간 파싱
-    UsageSnapshot.swift   모델, 에러 정의
-  Noonchi/              SwiftUI 메뉴 막대 앱 (패널, 설정 창, 다국어 문구)
-Tests/UsageCoreTests/   파서 테스트와 /usage 출력 샘플(Fixtures)
-Resources/Info.plist    앱 번들 정보 (버전은 빌드 시 주입)
-scripts/                앱 번들 빌드·설치 스크립트
+  UsageCore/            Core logic with no UI (tested)
+    ClaudeRunner.swift    Runs claude in a PTY and captures /usage
+    TerminalScreen.swift  Replays PTY output on an emulated screen (handles partial redraws)
+    TerminalText.swift    Strips ANSI escapes (fallback when screen replay fails)
+    UsageParser.swift     Parses usage and reset times
+    UsageSnapshot.swift   Model and error types
+  Noonchi/              SwiftUI menu bar app (panel, settings window, localized strings)
+Tests/UsageCoreTests/   Parser tests and /usage output samples (Fixtures)
+Resources/Info.plist    App bundle info (version injected at build time)
+scripts/                App bundle build and install scripts
 ```
 
-### Claude Code 출력이 바뀌었을 때
+### When Claude Code's output changes
 
-1. 패널의 "원본 출력 보기"를 눌러 별도 창에서 내용을 복사합니다.
-2. `Tests/UsageCoreTests/Fixtures/`에 새 샘플로 저장하고 테스트를 추가합니다.
-3. `UsageParser.swift`를 고쳐 테스트를 통과시킵니다.
+1. Click "Show raw output" in the panel and copy the text from the window that opens.
+2. Save it as a new sample in `Tests/UsageCoreTests/Fixtures/` and add a test.
+3. Fix `UsageParser.swift` until the test passes.
 
-## 릴리스
+## Releases
 
-`VERSION`을 올리고 태그를 푸시하면 GitHub Actions가 테스트, 빌드 후 zip을 Release에 올립니다.
+Bump `VERSION` and push a tag. GitHub Actions runs the tests, builds the app, and attaches the zip to a Release.
 
 ```bash
 git tag v0.1.0 && git push origin v0.1.0
 ```
 
-배포된 앱은 ad-hoc 서명이라 처음 실행 시 우클릭 > 열기가 필요할 수 있습니다.
+Released builds are ad-hoc signed, so the first launch may need right-click > Open.
 
-## 라이선스
+## License
 
 MIT
