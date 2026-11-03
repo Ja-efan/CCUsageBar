@@ -9,7 +9,7 @@ struct NoonchiApp: App {
         MenuBarExtra {
             PanelView(store: store, settings: settings)
         } label: {
-            Text(settings.menuBarLabel(usage: store.claudeUsage, hasLoaded: store.hasLoaded))
+            MenuBarLabel(store: store, settings: settings)
         }
         .menuBarExtraStyle(.window)
     }

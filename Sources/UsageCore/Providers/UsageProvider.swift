@@ -7,6 +7,8 @@ public protocol UsageProvider: Sendable {
     var displayName: String { get }
     /// SF Symbol shown next to the name. Placeholder until each service has its own glyph.
     var symbolName: String { get }
+    /// One letter for the monogram and ring icon styles.
+    var monogram: String { get }
     var refreshInterval: Duration { get }
     /// Nil means the service's CLI isn't installed.
     func locateExecutable() -> String?

@@ -7,9 +7,6 @@ struct Strings {
     private func t(_ ko: String, _ en: String) -> String { language == .korean ? ko : en }
 
     // Panel
-    var session: String { t("5시간 세션", "5-hour session") }
-    var weekAll: String { t("주간 (전체 모델)", "Weekly (all models)") }
-    func weekModel(_ name: String) -> String { t("주간 (\(name))", "Weekly (\(name))") }
     func updated(_ time: String) -> String { t("\(time) 업데이트", "Updated \(time)") }
     func valueAt(_ time: String) -> String { t("\(time) 값", "As of \(time)") }
     var retryNext: String { t("다음 조회 때 다시 시도", "will retry") }
@@ -63,21 +60,43 @@ struct Strings {
     // Settings window
     var settingsTitle: String { t("Noonchi 설정", "Noonchi Settings") }
     var general: String { t("일반", "General") }
+    var services: String { t("서비스", "Services") }
     var languageLabel: String { t("언어", "Language") }
-    var menuBar: String { t("상단 바 표시", "Menu bar") }
-    var menuBarHint: String { t("상단 바에 보여줄 항목을 고르세요.", "Choose what to show in the menu bar.") }
-    var modelsHint: String { t("모델별 한도는 한 번 조회된 뒤 여기에 나타나요.", "Model limits appear here after the first refresh.") }
-    var labelStyle: String { t("표시 형식", "Format") }
-    var styleLabeled: String { t("라벨 포함 (5h 42%)", "With labels (5h 42%)") }
-    var styleCompact: String { t("숫자만 (42%)", "Numbers only (42%)") }
-    var preview: String { t("미리보기", "Preview") }
-    var barColor: String { t("막대 색상", "Bar color") }
-    var colorMode: String { t("색상 방식", "Color mode") }
-    var modeByUsage: String { t("사용률에 따라 (초록·주황·빨강)", "By usage (green · orange · red)") }
-    var modeFixed: String { t("단색", "Single color") }
-    var customColor: String { t("직접 선택", "Custom") }
-    var warnHigh: String { t("90% 이상이면 빨간색으로 경고", "Turn red at 90% or more") }
-    var done: String { t("완료", "Done") }
+    var menuBar: String { t("상단 바", "Menu bar") }
+    var menuBarMode: String { t("표시 방식", "Show") }
+    var modeAuto: String { t("자동", "Automatic") }
+    var modeCustom: String { t("직접 선택", "Custom") }
+    var customHint: String { t("서비스 탭에서 항목을 고르세요.", "Pick items in the Services tab.") }
+    var labels: String { t("라벨", "Labels") }
+    var labelsHint: String { t("5h 19%처럼 기간 표시", "Show the period, like 5h 19%") }
+    var iconStyle: String { t("아이콘", "Icon") }
+    var iconSymbol: String { t("기호", "Symbol") }
+    var iconMonogram: String { t("글자", "Letter") }
+    var iconRing: String { t("링", "Ring") }
+    var colors: String { t("색상", "Colors") }
+    var highlightHigh: String { t("높을 때만 강조", "Highlight high usage") }
+    var highlightHint: String { t("80% 주황 · 95% 빨강, 나머지는 막대 색", "Orange at 80%, red at 95%; otherwise the bar color") }
+    var barColor: String { t("막대 색", "Bar color") }
+    var systemColor: String { t("시스템", "System") }
+    var launchAtLogin: String { t("로그인 시 실행", "Open at login") }
+    var approveInSystemSettings: String { t("시스템 설정에서 허용하기…", "Allow in System Settings…") }
+    var notInstalled: String { t("설치되지 않음", "Not installed") }
+    var menuBarItems: String { t("상단 바 항목", "Menu bar items") }
+    var afterFirstRefresh: String { t("첫 조회 뒤에 나타나요", "Appear after the first refresh") }
+    func every(_ interval: Duration) -> String {
+        let m = Int(interval.components.seconds / 60)
+        return t("\(m)분마다", "every \(m) min")
+    }
+
+    /// "이 속도면 3:10 PM에 5시간 한도 도달"
+    func pace(_ label: String, _ when: ResetDisplay) -> String {
+        let time = reset(when)
+        if language == .korean { return "이 속도면 \(time)에 \(label) 한도 도달" }
+        switch when {
+        case .inMinutes, .date: return "At this pace, the \(label) limit hits \(time)"
+        case .time, .weekdayTime: return "At this pace, the \(label) limit hits at \(time)"
+        }
+    }
 
     func error(_ e: ProviderError) -> String {
         switch e {

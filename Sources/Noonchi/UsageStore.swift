@@ -6,9 +6,11 @@ final class UsageStore: ObservableObject {
     /// Installed services in registry order. Others aren't polled or shown.
     @Published private(set) var shown: [any UsageProvider] = []
     @Published private(set) var states: [ProviderID: ProviderState] = [:]
-    /// Claude has answered at least once; the menu bar shows "…" until then.
-    @Published private(set) var hasLoaded = false
     @Published var contentHeight: CGFloat = 0
+    /// Predicts when a window hits its limit; replaceable with a better model.
+    var paceModel: any PaceModel = PaceEstimator()
+    /// Told about every good reading.
+    private var observers: [any UsageObserver] = []
 
     private var timers: [Timer] = []
 
@@ -30,7 +32,6 @@ final class UsageStore: ObservableObject {
     }
 
     var isLoading: Bool { states.values.contains { $0.isLoading } }
-    var claudeUsage: ProviderUsage? { states[ClaudeCodeProvider().id]?.usage }
     /// Time of the newest good reading.
     var lastUpdated: Date? { states.values.compactMap { $0.usage?.fetchedAt }.max() }
 
@@ -38,13 +39,13 @@ final class UsageStore: ObservableObject {
         for provider in Providers.all { refresh(provider) }
     }
 
+    func addObserver(_ observer: any UsageObserver) { observers.append(observer) }
+
     func refresh(_ provider: any UsageProvider) {
         let id = provider.id
-        let isClaude = provider is ClaudeCodeProvider
-        guard provider.locateExecutable() != nil else {
+        guard AppSettings.shared.isEnabled(id), provider.locateExecutable() != nil else {
             states[id] = nil
             shown = Providers.all.filter { states[$0.id] != nil }
-            if isClaude { hasLoaded = true }
             return
         }
         guard states[id]?.isLoading != true else { return }
@@ -60,15 +61,13 @@ final class UsageStore: ObservableObject {
             } catch {
                 result = .failure(ProviderFailure(.failed(String(describing: error))))
             }
-            states[id, default: ProviderState()].apply(result)
+            // Turned off while the read was running.
+            guard states[id] != nil else { return }
+            states[id]?.apply(result)
             states[id]?.isLoading = false
-            if isClaude {
-                hasLoaded = true
-                if case .success(let usage) = result {
-                    AppSettings.shared.registerModels(usage.windows.compactMap { w in
-                        if case .model(let name, _) = w.kind { return name } else { return nil }
-                    })
-                }
+            if case .success(let usage) = result {
+                AppSettings.shared.registerWindows(usage.windows.map(\.id), for: id)
+                observers.forEach { $0.usageDidUpdate(usage, provider: id) }
             }
         }
     }

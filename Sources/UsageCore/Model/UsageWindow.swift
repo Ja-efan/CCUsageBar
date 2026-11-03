@@ -27,6 +27,19 @@ public struct UsageWindow: Identifiable, Equatable, Sendable {
         return "\(minutes)m"
     }
 
+    /// Orders window IDs short to long, model caps last: "5h", "week", "30d", "model:Fable".
+    public static func sortKey(id: String) -> (Int, String) {
+        if id.hasPrefix("model:") { return (Int.max, id) }
+        if id == "week" { return (10080, id) }
+        guard let number = Int(id.dropLast()) else { return (Int.max - 1, id) }
+        switch id.last {
+        case "m": return (number, id)
+        case "h": return (number * 60, id)
+        case "d": return (number * 1440, id)
+        default: return (Int.max - 1, id)
+        }
+    }
+
     public init(id: String, kind: Kind, usedPercent: Double, resetsAt: Date? = nil, resetText: String? = nil) {
         self.id = id
         self.kind = kind

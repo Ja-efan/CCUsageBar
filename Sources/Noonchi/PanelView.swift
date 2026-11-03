@@ -10,7 +10,6 @@ struct WindowRow: View {
     var body: some View {
         let s = settings.strings
         let percent = Int(window.usedPercent.rounded())
-        let color = settings.color(for: percent)
         HStack(spacing: 8) {
             Text(s.windowLabel(window.kind))
                 .foregroundStyle(.secondary)
@@ -19,7 +18,7 @@ struct WindowRow: View {
             GeometryReader { g in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.primary.opacity(0.1))
-                    Capsule().fill(color)
+                    Capsule().fill(settings.barColor(for: window.usedPercent))
                         .frame(width: g.size.width * min(max(window.usedPercent, 0), 100) / 100)
                 }
             }
@@ -27,7 +26,7 @@ struct WindowRow: View {
             .opacity(stale ? 0.45 : 1)
             Text("\(percent)%")
                 .fontWeight(.medium)
-                .foregroundStyle(color)
+                .foregroundStyle(settings.textColor(for: window.usedPercent))
                 .opacity(stale ? 0.45 : 1)
                 .frame(width: 36, alignment: .trailing)
             resetText
@@ -56,14 +55,19 @@ struct WindowRow: View {
 struct ProviderSection: View {
     let provider: any UsageProvider
     let state: ProviderState
+    let paceModel: any PaceModel
     @ObservedObject var settings: AppSettings
 
     var body: some View {
         let s = settings.strings
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
-                Label(provider.displayName, systemImage: provider.symbolName)
-                    .font(.system(size: 13, weight: .semibold))
+                HStack(spacing: 6) {
+                    ProviderGlyph(provider: provider, style: settings.iconStyle,
+                                  percent: state.usage.flatMap(MenuBarFormatter.autoWindow)?.usedPercent)
+                    Text(provider.displayName)
+                }
+                .font(.system(size: 13, weight: .semibold))
                 Spacer()
                 Text(meta(s)).font(.system(size: 11)).foregroundStyle(.tertiary)
             }
@@ -71,6 +75,9 @@ struct ProviderSection: View {
 
             if let usage = state.usage {
                 ForEach(usage.windows) { WindowRow(window: $0, stale: state.isStale, settings: settings) }
+            }
+            if !state.isStale, let usage = state.usage {
+                PaceLine(usage: usage, provider: provider.id, paceModel: paceModel, settings: settings)
             }
             if let error = state.error {
                 HStack(spacing: 6) {
@@ -92,6 +99,29 @@ struct ProviderSection: View {
     private func meta(_ s: Strings) -> String {
         if state.isStale, let usage = state.usage { return s.valueAt(s.clock(usage.fetchedAt)) }
         return state.usage?.plan ?? ""
+    }
+}
+
+/// "이 속도면 3:10 PM에 5시간 한도 도달", only when a limit would come before its reset.
+struct PaceLine: View {
+    let usage: ProviderUsage
+    let provider: ProviderID
+    let paceModel: any PaceModel
+    @ObservedObject var settings: AppSettings
+
+    var body: some View {
+        TimelineView(.everyMinute) { context in
+            let earliest = usage.windows
+                .compactMap { w in paceModel.projectedLimit(for: w, provider: provider, now: context.date).map { (w, $0) } }
+                .min { $0.1 < $1.1 }
+            if let (window, date) = earliest {
+                let s = settings.strings
+                Text(s.pace(s.windowLabel(window.kind), ResetDisplay(date, now: context.date)))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 2)
+            }
+        }
     }
 }
 
@@ -120,7 +150,7 @@ struct PanelView: View {
                     ForEach(Array(store.shown.enumerated()), id: \.element.id) { i, provider in
                         if i > 0 { Divider() }
                         ProviderSection(provider: provider, state: store.states[provider.id] ?? ProviderState(),
-                                        settings: settings)
+                                        paceModel: store.paceModel, settings: settings)
                     }
                 }
                 .background(GeometryReader { g in

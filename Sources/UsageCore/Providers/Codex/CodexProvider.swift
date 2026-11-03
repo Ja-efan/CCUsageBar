@@ -7,6 +7,7 @@ public struct CodexProvider: UsageProvider {
     public let id = ProviderID("codex")
     public let displayName = "Codex"
     public let symbolName = "hexagon"
+    public let monogram = "X"
     /// A read is one small request, so it can poll more often than Claude.
     public let refreshInterval: Duration = .seconds(120)
     public var timeout: TimeInterval = 20

@@ -6,6 +6,7 @@ public struct ClaudeCodeProvider: UsageProvider {
     public let id = ProviderID("claude")
     public let displayName = "Claude Code"
     public let symbolName = "asterisk"
+    public let monogram = "C"
     /// Each read starts a full Claude Code session, so poll slowly.
     public let refreshInterval: Duration = .seconds(300)
     public var timeout: TimeInterval = 25
