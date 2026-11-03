@@ -73,6 +73,16 @@ public struct ClaudeCodeProvider: UsageProvider {
         return snap
     }
 
+    /// The key that moves the folder trust prompt toward "Yes, I trust this folder":
+    /// Enter when it's selected, otherwise Down. Nil when the prompt isn't on screen.
+    /// 2.1.310 selects "No, exit" first, so a bare Enter would quit.
+    static func trustPromptKey(_ screen: String) -> String? {
+        let lines = screen.components(separatedBy: "\n")
+        guard lines.contains(where: { $0.lowercased().contains("trust this folder") }) else { return nil }
+        let selected = lines.first { $0.hasPrefix("❯") } ?? ""
+        return selected.lowercased().contains("trust this folder") ? "\r" : "\u{1b}[B"
+    }
+
     static let columns = 140
     static let rows = 50
 
@@ -101,7 +111,7 @@ public struct ClaudeCodeProvider: UsageProvider {
         let start = Date()
         var sentUsage = false
         var sentAt = Date()
-        var trustHandled = false
+        var trustKeys = 0
 
         while Date().timeIntervalSince(start) < timeout {
             pty.drain()
@@ -110,10 +120,11 @@ public struct ClaudeCodeProvider: UsageProvider {
             let elapsed = Date().timeIntervalSince(start)
 
             if !sentUsage {
-                if !trustHandled, t.lowercased().contains("trust"), t.lowercased().contains("folder") {
-                    trustHandled = true
-                    pty.send("\r") // accept "trust this folder" for the app's private work dir
-                    usleep(1_500_000)
+                // Accept "trust this folder" for the app's private work dir.
+                if trustKeys < 4, let key = Self.trustPromptKey(pty.screen) {
+                    trustKeys += 1
+                    pty.send(key)
+                    usleep(key == "\r" ? 1_500_000 : 200_000)
                     continue
                 }
                 if elapsed > 1.5, t.contains("❯") || elapsed > 6 {

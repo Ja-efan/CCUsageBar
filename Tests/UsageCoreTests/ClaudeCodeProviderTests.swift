@@ -36,3 +36,25 @@ final class ClaudeCodeProviderTests: XCTestCase {
         for e in all { XCTAssertEqual(UsageError(ProviderError(e)), e) }
     }
 }
+
+final class TrustPromptTests: XCTestCase {
+    private let prompt = """
+    Quick safety check: Is this a project you created or one you trust?
+    Security guide
+    %@No, exit
+    %@Yes, I trust this folder
+    Enter to confirm · Esc to cancel
+    """
+
+    func testMovesDownWhenNoIsSelected() {
+        XCTAssertEqual(ClaudeCodeProvider.trustPromptKey(String(format: prompt, "❯ ", "")), "\u{1b}[B")
+    }
+
+    func testConfirmsWhenYesIsSelected() {
+        XCTAssertEqual(ClaudeCodeProvider.trustPromptKey(String(format: prompt, "", "❯ ")), "\r")
+    }
+
+    func testIgnoresMainPrompt() {
+        XCTAssertNil(ClaudeCodeProvider.trustPromptKey("❯ Try \"how does <filepath> work?\""))
+    }
+}
