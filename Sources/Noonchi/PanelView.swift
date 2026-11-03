@@ -123,9 +123,9 @@ struct PaceLine: View {
             let earliest = usage.windows
                 .compactMap { w in paceModel.projectedLimit(for: w, provider: provider, now: context.date).map { (w, $0) } }
                 .min { $0.1 < $1.1 }
-            if let (window, date) = earliest {
+            if let earliest {
                 let s = settings.strings
-                Text(s.pace(s.windowLabel(window.kind), ResetDisplay(date, now: context.date)))
+                Text(s.pace(s.windowLabel(earliest.0.kind), ResetDisplay(earliest.1, now: context.date)))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .padding(.top, 2)
