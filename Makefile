@@ -13,7 +13,7 @@ install:
 	./scripts/install.sh
 
 run: app
-	open dist/CCUsageBar.app
+	open dist/Noonchi.app
 
 clean:
 	rm -rf .build dist

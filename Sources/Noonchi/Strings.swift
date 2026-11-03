@@ -20,13 +20,13 @@ struct Strings {
     var showRawOutput: String { t("원본 출력 보기", "Show raw output") }
 
     // Raw output window
-    var rawOutputTitle: String { t("CC Usage Bar · 원본 출력", "CC Usage Bar · Raw output") }
+    var rawOutputTitle: String { t("Noonchi · 원본 출력", "Noonchi · Raw output") }
     var notYet: String { t("(아직 없음)", "(nothing yet)") }
     var copy: String { t("복사", "Copy") }
     var showInFinder: String { t("Finder에서 보기", "Show in Finder") }
 
     // Settings window
-    var settingsTitle: String { t("CC Usage Bar 설정", "CC Usage Bar Settings") }
+    var settingsTitle: String { t("Noonchi 설정", "Noonchi Settings") }
     var general: String { t("일반", "General") }
     var languageLabel: String { t("언어", "Language") }
     var menuBar: String { t("상단 바 표시", "Menu bar") }

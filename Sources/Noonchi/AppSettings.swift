@@ -79,6 +79,7 @@ final class AppSettings: ObservableObject {
 
     private init() {
         let d = UserDefaults.standard
+        Self.migrateFromOldBundleID(into: d)
         language = d.string(forKey: Key.language).flatMap(AppLanguage.init) ?? .systemDefault
         menuItemKeys = Set(d.stringArray(forKey: Key.menuItems) ?? ["session", "week"])
         labelStyle = d.string(forKey: Key.labelStyle).flatMap(LabelStyle.init) ?? .labeled
@@ -86,6 +87,17 @@ final class AppSettings: ObservableObject {
         barColorHex = d.string(forKey: Key.barColor) ?? "#D97757"
         warnHighUsage = d.object(forKey: Key.warnHigh) as? Bool ?? true
         knownModels = d.stringArray(forKey: Key.knownModels) ?? []
+    }
+
+    /// Settings saved before the rename (CCUsageBar) live under the old bundle ID.
+    private static func migrateFromOldBundleID(into d: UserDefaults) {
+        guard d.object(forKey: "settingsMigrated") == nil else { return }
+        d.set(true, forKey: "settingsMigrated")
+        guard let old = UserDefaults(suiteName: "io.github.ja-efan.ccusagebar") else { return }
+        let keys = [Key.language, Key.menuItems, Key.labelStyle, Key.colorMode, Key.barColor, Key.warnHigh, Key.knownModels]
+        for key in keys where d.object(forKey: key) == nil {
+            if let v = old.object(forKey: key) { d.set(v, forKey: key) }
+        }
     }
 
     var strings: Strings { Strings(language: language) }

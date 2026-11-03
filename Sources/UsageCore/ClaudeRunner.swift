@@ -7,14 +7,15 @@ public struct ClaudeRunner: Sendable {
     public var timeout: TimeInterval = 25
     public var workDirectory: String
 
-    public init(workDirectory: String = NSHomeDirectory() + "/Library/Application Support/CCUsageBar") {
+    public init(workDirectory: String = NSHomeDirectory() + "/Library/Application Support/Noonchi") {
         self.workDirectory = workDirectory
     }
 
     public static func findClaude() -> String? {
         let home = NSHomeDirectory()
         let candidates = [
-            ProcessInfo.processInfo.environment["CCUSAGEBAR_CLAUDE_PATH"],
+            ProcessInfo.processInfo.environment["NOONCHI_CLAUDE_PATH"],
+            ProcessInfo.processInfo.environment["CCUSAGEBAR_CLAUDE_PATH"], // old name
             "\(home)/.local/bin/claude",
             "\(home)/.claude/local/claude",
             "/opt/homebrew/bin/claude",

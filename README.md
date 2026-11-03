@@ -1,4 +1,4 @@
-# CC Usage Bar
+# Noonchi (눈치)
 
 Claude Code의 **5시간 세션 사용률**과 **주간 사용률**을 macOS 메뉴 막대에 표시하는 앱입니다. 패널에서는 Fable 같은 **모델별 주간 한도**도 함께 보여줍니다.
 
@@ -25,7 +25,7 @@ Claude Code의 **5시간 세션 사용률**과 **주간 사용률**을 macOS 메
 - 조회에 실패하면 마지막으로 읽은 값을 그대로 두고 오류만 표시합니다.
 - 모델을 호출하지 않으므로 **토큰을 쓰지 않습니다.**
 - 키체인이나 Anthropic API를 직접 건드리지 않고, Claude Code가 보여주는 값을 그대로 씁니다.
-- Claude Code 작업 폴더는 `~/Library/Application Support/CCUsageBar`를 사용합니다.
+- Claude Code 작업 폴더는 `~/Library/Application Support/Noonchi`를 사용합니다.
 
 ## 요구 사항
 
@@ -33,7 +33,7 @@ Claude Code의 **5시간 세션 사용률**과 **주간 사용률**을 macOS 메
 - Claude Code 설치 및 로그인 (Pro/Max 구독)
 - 빌드 시 Xcode 또는 Command Line Tools (Swift 5.9+)
 
-`claude` 위치는 `~/.local/bin`, `~/.claude/local`, `/opt/homebrew/bin`, `/usr/local/bin` 순서로 찾습니다. 다른 곳에 있다면 `CCUSAGEBAR_CLAUDE_PATH` 환경 변수로 지정하세요.
+`claude` 위치는 `~/.local/bin`, `~/.claude/local`, `/opt/homebrew/bin`, `/usr/local/bin` 순서로 찾습니다. 다른 곳에 있다면 `NOONCHI_CLAUDE_PATH` 환경 변수로 지정하세요.
 
 ## 설치
 
@@ -43,7 +43,7 @@ cd CCUsageBar
 make install      # 빌드 → ~/Applications 설치 → 실행
 ```
 
-로그인 시 자동 실행: 시스템 설정 > 일반 > 로그인 항목에 `CCUsageBar` 추가.
+로그인 시 자동 실행: 시스템 설정 > 일반 > 로그인 항목에 `Noonchi` 추가.
 
 ## 개발
 
@@ -51,7 +51,7 @@ make install      # 빌드 → ~/Applications 설치 → 실행
 |---|---|
 | `make build` | 디버그 빌드 |
 | `make test` | 파서 단위 테스트 |
-| `make app` | `dist/CCUsageBar.app` 및 zip 생성 |
+| `make app` | `dist/Noonchi.app` 및 zip 생성 |
 | `make run` | 앱 빌드 후 실행 |
 | `make clean` | 빌드 결과 삭제 |
 
@@ -67,7 +67,7 @@ Sources/
     TerminalText.swift    ANSI 이스케이프 제거 (화면 재현 실패 시 대체 경로)
     UsageParser.swift     사용률·초기화 시간 파싱
     UsageSnapshot.swift   모델, 에러 정의
-  CCUsageBar/           SwiftUI 메뉴 막대 앱 (패널, 설정 창, 다국어 문구)
+  Noonchi/              SwiftUI 메뉴 막대 앱 (패널, 설정 창, 다국어 문구)
 Tests/UsageCoreTests/   파서 테스트와 /usage 출력 샘플(Fixtures)
 Resources/Info.plist    앱 번들 정보 (버전은 빌드 시 주입)
 scripts/                앱 번들 빌드·설치 스크립트

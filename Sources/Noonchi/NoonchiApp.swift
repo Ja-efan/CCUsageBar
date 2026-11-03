@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct CCUsageBarApp: App {
+struct NoonchiApp: App {
     @StateObject private var store = UsageStore()
     @StateObject private var settings = AppSettings.shared
 

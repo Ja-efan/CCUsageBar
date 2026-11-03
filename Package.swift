@@ -2,16 +2,16 @@
 import PackageDescription
 
 let package = Package(
-    name: "CCUsageBar",
+    name: "Noonchi",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "CCUsageBar", targets: ["CCUsageBar"]),
+        .executable(name: "Noonchi", targets: ["Noonchi"]),
     ],
     targets: [
         // Pure logic: terminal capture, ANSI cleanup, /usage parsing. No UI.
         .target(name: "UsageCore"),
         // SwiftUI menu bar app.
-        .executableTarget(name: "CCUsageBar", dependencies: ["UsageCore"]),
+        .executableTarget(name: "Noonchi", dependencies: ["UsageCore"]),
         .testTarget(
             name: "UsageCoreTests",
             dependencies: ["UsageCore"],
