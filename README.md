@@ -81,11 +81,10 @@ To open it in Xcode, run `open Package.swift`.
 ```
 Sources/
   UsageCore/            Core logic with no UI (tested)
-    ClaudeRunner.swift    Runs claude in a PTY and captures /usage
-    TerminalScreen.swift  Replays PTY output on an emulated screen (handles partial redraws)
-    TerminalText.swift    Strips ANSI escapes (fallback when screen replay fails)
-    UsageParser.swift     Parses usage and reset times
-    UsageSnapshot.swift   Model and error types
+    Model/                Shared reading model (ProviderUsage, UsageWindow)
+    Providers/            UsageProvider protocol and registry
+      ClaudeCode/           Runs claude in a PTY, sends /usage, parses usage and reset times
+    Runtime/              PTY process, screen replay (handles partial redraws), ANSI cleanup
   Noonchi/              SwiftUI menu bar app (panel, settings window, localized strings)
 Tests/UsageCoreTests/   Parser tests and /usage output samples (Fixtures)
 Resources/Info.plist    App bundle info (version injected at build time)

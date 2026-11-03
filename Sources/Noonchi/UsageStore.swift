@@ -8,15 +8,13 @@ final class UsageStore: ObservableObject {
     @Published private(set) var hasLoaded = false
     @Published var contentHeight: CGFloat = 0
 
-    /// Refresh interval in seconds.
-    static let refreshInterval: TimeInterval = 300
-
-    private let runner = ClaudeRunner()
+    private let claude = ClaudeCodeProvider()
     private var timer: Timer?
 
     init() {
         refresh()
-        timer = Timer.scheduledTimer(withTimeInterval: Self.refreshInterval, repeats: true) { [weak self] _ in
+        let interval = TimeInterval(claude.refreshInterval.components.seconds)
+        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
         }
         // The timer doesn't fire during sleep; values would be stale for up to one interval.
@@ -30,15 +28,19 @@ final class UsageStore: ObservableObject {
     func refresh() {
         guard !isLoading else { return }
         isLoading = true
-        let runner = self.runner
-        DispatchQueue.global(qos: .utility).async {
-            let snap = runner.fetch()
-            DispatchQueue.main.async {
-                self.snapshot = self.snapshot.updated(with: snap)
-                AppSettings.shared.registerModels(snap.modelLimits.map(\.name))
-                self.hasLoaded = true
-                self.isLoading = false
+        Task {
+            let snap: UsageSnapshot
+            do {
+                snap = UsageSnapshot(try await claude.fetch())
+            } catch let failure as ProviderFailure {
+                snap = UsageSnapshot(failure)
+            } catch {
+                snap = UsageSnapshot(ProviderFailure(.failed(String(describing: error))))
             }
+            snapshot = snapshot.updated(with: snap)
+            AppSettings.shared.registerModels(snap.modelLimits.map(\.name))
+            hasLoaded = true
+            isLoading = false
         }
     }
 }

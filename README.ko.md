@@ -79,11 +79,10 @@ Xcode에서 열려면 `open Package.swift`.
 ```
 Sources/
   UsageCore/            UI 없는 핵심 로직 (테스트 대상)
-    ClaudeRunner.swift    PTY로 claude 실행 및 /usage 캡처
-    TerminalScreen.swift  PTY 출력을 가상 화면에 재현 (부분 갱신 반영)
-    TerminalText.swift    ANSI 이스케이프 제거 (화면 재현 실패 시 대체 경로)
-    UsageParser.swift     사용률·초기화 시간 파싱
-    UsageSnapshot.swift   모델, 에러 정의
+    Model/                공통 사용량 모델 (ProviderUsage, UsageWindow)
+    Providers/            UsageProvider 프로토콜과 등록 목록
+      ClaudeCode/           PTY로 claude 실행, /usage 전송, 사용률·초기화 시간 파싱
+    Runtime/              PTY 프로세스, 가상 화면 재현 (부분 갱신 반영), ANSI 정리
   Noonchi/              SwiftUI 메뉴 막대 앱 (패널, 설정 창, 다국어 문구)
 Tests/UsageCoreTests/   파서 테스트와 /usage 출력 샘플(Fixtures)
 Resources/Info.plist    앱 번들 정보 (버전은 빌드 시 주입)

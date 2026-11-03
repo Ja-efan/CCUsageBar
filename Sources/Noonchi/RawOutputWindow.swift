@@ -48,7 +48,7 @@ struct RawOutputView: View {
                     .font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button(s.showInFinder) {
-                    let path = ClaudeRunner().debugFiles.cleaned
+                    let path = ClaudeCodeProvider().debugFiles.cleaned
                     NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "")
                 }
                 Button(s.copy) {
