@@ -1,0 +1,50 @@
+{
+  "ordinaryUsageAllowed": true,
+  "rateLimitResetCredits": {
+    "availableCount": 0,
+    "credits": null
+  },
+  "rateLimitUpsell": null,
+  "rateLimits": {
+    "credits": {
+      "balance": null,
+      "hasCredits": false,
+      "unlimited": false
+    },
+    "individualLimit": null,
+    "limitId": "codex",
+    "limitName": null,
+    "normalModelSlug": null,
+    "planType": "prolite",
+    "primary": {
+      "resetsAt": 1791701565,
+      "usedPercent": 26,
+      "windowDurationMins": 10080
+    },
+    "rateLimitReachedType": null,
+    "secondary": null,
+    "spendControlReached": false
+  },
+  "rateLimitsByLimitId": {
+    "codex": {
+      "credits": {
+        "balance": null,
+        "hasCredits": false,
+        "unlimited": false
+      },
+      "individualLimit": null,
+      "limitId": "codex",
+      "limitName": null,
+      "normalModelSlug": null,
+      "planType": "prolite",
+      "primary": {
+        "resetsAt": 1791701565,
+        "usedPercent": 26,
+        "windowDurationMins": 10080
+      },
+      "rateLimitReachedType": null,
+      "secondary": null,
+      "spendControlReached": false
+    }
+  }
+}

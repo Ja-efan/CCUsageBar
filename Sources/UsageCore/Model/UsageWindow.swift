@@ -19,6 +19,14 @@ public struct UsageWindow: Identifiable, Equatable, Sendable {
     /// The service's own reset wording, shown when `resetsAt` is nil.
     public let resetText: String?
 
+    /// Settings key for a rolling window: "5h", "week", "30d".
+    public static func rollingID(minutes: Int) -> String {
+        if minutes == 10080 { return "week" }
+        if minutes % 1440 == 0 { return "\(minutes / 1440)d" }
+        if minutes % 60 == 0 { return "\(minutes / 60)h" }
+        return "\(minutes)m"
+    }
+
     public init(id: String, kind: Kind, usedPercent: Double, resetsAt: Date? = nil, resetText: String? = nil) {
         self.id = id
         self.kind = kind
