@@ -7,17 +7,52 @@ struct Strings {
     private func t(_ ko: String, _ en: String) -> String { language == .korean ? ko : en }
 
     // Panel
-    var title: String { t("Claude Code 사용량", "Claude Code Usage") }
     var session: String { t("5시간 세션", "5-hour session") }
     var weekAll: String { t("주간 (전체 모델)", "Weekly (all models)") }
     func weekModel(_ name: String) -> String { t("주간 (\(name))", "Weekly (\(name))") }
-    func resets(_ when: String) -> String { t("초기화: \(when)", "Resets \(when)") }
-    func updated(_ time: String) -> String { t("업데이트: \(time)", "Updated \(time)") }
+    func updated(_ time: String) -> String { t("\(time) 업데이트", "Updated \(time)") }
+    func valueAt(_ time: String) -> String { t("\(time) 값", "As of \(time)") }
+    var retryNext: String { t("다음 조회 때 다시 시도", "will retry") }
     var loading: String { t("불러오는 중…", "Loading…") }
+    var refreshing: String { t("새로고침 중…", "Refreshing…") }
     var refresh: String { t("새로고침", "Refresh") }
-    var quit: String { t("종료", "Quit") }
-    var settings: String { t("설정", "Settings") }
+    var more: String { t("더 보기", "More") }
+    var settingsMenu: String { t("설정…", "Settings…") }
+    var quit: String { t("Noonchi 종료", "Quit Noonchi") }
     var showRawOutput: String { t("원본 출력 보기", "Show raw output") }
+    var noProviders: String { t("Claude Code나 Codex를 찾지 못했어요", "Couldn't find Claude Code or Codex") }
+
+    /// "5시간", "주간", "30일", or the model name.
+    func windowLabel(_ kind: UsageWindow.Kind) -> String {
+        switch kind {
+        case .model(let name, _):
+            return name
+        case .rolling(let minutes):
+            if minutes == 10080 { return t("주간", "Weekly") }
+            if minutes % 1440 == 0 { return t("\(minutes / 1440)일", "\(minutes / 1440)-day") }
+            return t("\(minutes / 60)시간", "\(minutes / 60)-hour")
+        }
+    }
+
+    private var locale: Locale { Locale(identifier: language == .korean ? "ko_KR" : "en_US") }
+
+    /// "3:59 PM" in both languages, as in the design.
+    func clock(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "h:mm a"
+        return f.string(from: date)
+    }
+
+    func reset(_ display: ResetDisplay) -> String {
+        switch display {
+        case .inMinutes(0): return t("곧", "soon")
+        case .inMinutes(let m): return t("\(m)분 후", "in \(m) min")
+        case .time(let d): return clock(d)
+        case .weekdayTime(let d): return d.formatted(.dateTime.weekday(.abbreviated).locale(locale)) + " " + clock(d)
+        case .date(let d): return d.formatted(.dateTime.month(.abbreviated).day().locale(locale))
+        }
+    }
 
     // Raw output window
     var rawOutputTitle: String { t("Noonchi · 원본 출력", "Noonchi · Raw output") }
@@ -44,14 +79,15 @@ struct Strings {
     var warnHigh: String { t("90% 이상이면 빨간색으로 경고", "Turn red at 90% or more") }
     var done: String { t("완료", "Done") }
 
-    func error(_ e: UsageError) -> String {
+    func error(_ e: ProviderError) -> String {
         switch e {
-        case .claudeNotFound: return t("claude 실행 파일을 찾지 못했어요", "Couldn't find the claude executable")
-        case .launchFailed:   return t("Claude Code를 실행하지 못했어요", "Couldn't launch Claude Code")
-        case .noResponse:     return t("Claude Code가 응답하지 않았어요", "Claude Code didn't respond")
-        case .notLoggedIn:    return t("Claude Code에 로그인되어 있지 않아요", "Claude Code is not logged in")
-        case .apiBilling:     return t("API 과금 계정이라 구독 한도가 없어요", "API billing account has no plan limits")
-        case .unparsable:     return t("사용률을 찾지 못했어요 (원본 출력 확인)", "Couldn't read usage (see raw output)")
+        case .notInstalled:    return t("설치되지 않음", "Not installed")
+        case .launchFailed:    return t("실행하지 못했어요", "Couldn't launch")
+        case .timeout:         return t("응답 없음", "No response")
+        case .notLoggedIn:     return t("로그인 필요", "Not logged in")
+        case .unsupportedPlan: return t("API 과금 계정이라 구독 한도가 없어요", "API billing account has no plan limits")
+        case .unparsable:      return t("사용률을 읽지 못했어요 (원본 출력 확인)", "Couldn't read usage (see raw output)")
+        case .failed(let m):   return t("오류: \(m)", "Error: \(m)")
         }
     }
 }

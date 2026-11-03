@@ -5,6 +5,7 @@ import Foundation
 public struct ClaudeCodeProvider: UsageProvider {
     public let id = ProviderID("claude")
     public let displayName = "Claude Code"
+    public let symbolName = "asterisk"
     /// Each read starts a full Claude Code session, so poll slowly.
     public let refreshInterval: Duration = .seconds(300)
     public var timeout: TimeInterval = 25
@@ -41,21 +42,22 @@ public struct ClaudeCodeProvider: UsageProvider {
         guard snap.hasUsage else {
             return .failure(ProviderFailure(ProviderError(snap.error ?? .unparsable), raw: snap.raw))
         }
+        func reset(_ text: String?) -> Date? { text.flatMap { ResetTimeParser.parse($0, now: snap.updatedAt) } }
         var windows: [UsageWindow] = []
         if let p = snap.sessionPercent {
             windows.append(UsageWindow(id: "5h", kind: .rolling(minutes: 300), usedPercent: Double(p),
-                                       resetText: snap.sessionReset))
+                                       resetsAt: reset(snap.sessionReset), resetText: snap.sessionReset))
         }
         if let p = snap.weekPercent {
             windows.append(UsageWindow(id: "week", kind: .rolling(minutes: 10080), usedPercent: Double(p),
-                                       resetText: snap.weekReset))
+                                       resetsAt: reset(snap.weekReset), resetText: snap.weekReset))
         }
         for m in snap.modelLimits {
             guard let p = m.percent else { continue }
             windows.append(UsageWindow(id: "model:\(m.name)", kind: .model(name: m.name, minutes: 10080),
-                                       usedPercent: Double(p), resetText: m.reset))
+                                       usedPercent: Double(p), resetsAt: reset(m.reset), resetText: m.reset))
         }
-        return .success(ProviderUsage(windows: windows, fetchedAt: snap.updatedAt, raw: snap.raw))
+        return .success(ProviderUsage(plan: snap.plan, windows: windows, fetchedAt: snap.updatedAt, raw: snap.raw))
     }
 
     func readSnapshot() -> UsageSnapshot {
@@ -68,6 +70,8 @@ public struct ClaudeCodeProvider: UsageProvider {
             let fromStream = UsageParser.parse(TerminalText.clean(raw))
             if fromStream.hasUsage { snap = fromStream }
         }
+        // The banner may have scrolled off the final screen.
+        if snap.plan == nil { snap.plan = UsageParser.plan(in: TerminalText.clean(raw)) }
         saveDebug(raw: raw, cleaned: snap.raw)
         if let err { snap.error = err }
         return snap

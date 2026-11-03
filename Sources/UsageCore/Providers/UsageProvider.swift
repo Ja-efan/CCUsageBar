@@ -5,6 +5,8 @@ import Foundation
 public protocol UsageProvider: Sendable {
     var id: ProviderID { get }
     var displayName: String { get }
+    /// SF Symbol shown next to the name. Placeholder until each service has its own glyph.
+    var symbolName: String { get }
     var refreshInterval: Duration { get }
     /// Nil means the service's CLI isn't installed.
     func locateExecutable() -> String?

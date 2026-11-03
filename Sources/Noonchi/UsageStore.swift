@@ -3,23 +3,25 @@ import UsageCore
 
 @MainActor
 final class UsageStore: ObservableObject {
-    @Published private(set) var snapshot = UsageSnapshot()
-    /// Last good reading; kept when a refresh fails, like `snapshot`'s numbers.
-    @Published private(set) var claudeUsage: ProviderUsage?
-    @Published private(set) var isLoading = false
+    /// Installed services in registry order. Others aren't polled or shown.
+    @Published private(set) var shown: [any UsageProvider] = []
+    @Published private(set) var states: [ProviderID: ProviderState] = [:]
+    /// Claude has answered at least once; the menu bar shows "…" until then.
     @Published private(set) var hasLoaded = false
     @Published var contentHeight: CGFloat = 0
 
-    private let claude = ClaudeCodeProvider()
-    private var timer: Timer?
+    private var timers: [Timer] = []
 
     init() {
         refresh()
-        let interval = TimeInterval(claude.refreshInterval.components.seconds)
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
+        // Each service polls on its own interval and never waits for another.
+        for provider in Providers.all {
+            let interval = TimeInterval(provider.refreshInterval.components.seconds)
+            timers.append(Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+                Task { @MainActor in self?.refresh(provider) }
+            })
         }
-        // The timer doesn't fire during sleep; values would be stale for up to one interval.
+        // Timers don't fire during sleep; values would be stale for up to one interval.
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
         ) { [weak self] _ in
@@ -27,24 +29,47 @@ final class UsageStore: ObservableObject {
         }
     }
 
+    var isLoading: Bool { states.values.contains { $0.isLoading } }
+    var claudeUsage: ProviderUsage? { states[ClaudeCodeProvider().id]?.usage }
+    /// Time of the newest good reading.
+    var lastUpdated: Date? { states.values.compactMap { $0.usage?.fetchedAt }.max() }
+
     func refresh() {
-        guard !isLoading else { return }
-        isLoading = true
+        for provider in Providers.all { refresh(provider) }
+    }
+
+    func refresh(_ provider: any UsageProvider) {
+        let id = provider.id
+        let isClaude = provider is ClaudeCodeProvider
+        guard provider.locateExecutable() != nil else {
+            states[id] = nil
+            shown = Providers.all.filter { states[$0.id] != nil }
+            if isClaude { hasLoaded = true }
+            return
+        }
+        guard states[id]?.isLoading != true else { return }
+        states[id, default: ProviderState()].isLoading = true
+        shown = Providers.all.filter { states[$0.id] != nil }
+
         Task {
-            let snap: UsageSnapshot
+            let result: Result<ProviderUsage, ProviderFailure>
             do {
-                let usage = try await claude.fetch()
-                claudeUsage = usage
-                snap = UsageSnapshot(usage)
+                result = .success(try await provider.fetch())
             } catch let failure as ProviderFailure {
-                snap = UsageSnapshot(failure)
+                result = .failure(failure)
             } catch {
-                snap = UsageSnapshot(ProviderFailure(.failed(String(describing: error))))
+                result = .failure(ProviderFailure(.failed(String(describing: error))))
             }
-            snapshot = snapshot.updated(with: snap)
-            AppSettings.shared.registerModels(snap.modelLimits.map(\.name))
-            hasLoaded = true
-            isLoading = false
+            states[id, default: ProviderState()].apply(result)
+            states[id]?.isLoading = false
+            if isClaude {
+                hasLoaded = true
+                if case .success(let usage) = result {
+                    AppSettings.shared.registerModels(usage.windows.compactMap { w in
+                        if case .model(let name, _) = w.kind { return name } else { return nil }
+                    })
+                }
+            }
         }
     }
 }

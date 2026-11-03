@@ -21,6 +21,8 @@ public struct UsageSnapshot: Equatable, Sendable {
     public var weekPercent: Int?
     public var weekReset: String?
     public var modelLimits: [ModelLimit]
+    /// "Max", "Pro", … from the startup banner ("Opus 5.5 · Claude Max").
+    public var plan: String?
     public var error: UsageError?
     public var raw: String
     public var updatedAt: Date
@@ -43,17 +45,6 @@ public struct UsageSnapshot: Equatable, Sendable {
 
     public func modelLimit(named name: String) -> ModelLimit? {
         modelLimits.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }
-    }
-
-    /// The snapshot to show after `new` arrives. A failed read keeps the last good
-    /// numbers (and their time) and only adds the error, so a transient timeout
-    /// doesn't blank the menu bar.
-    public func updated(with new: UsageSnapshot) -> UsageSnapshot {
-        guard !new.hasUsage, hasUsage else { return new }
-        var kept = self
-        kept.error = new.error
-        kept.raw = new.raw
-        return kept
     }
 }
 

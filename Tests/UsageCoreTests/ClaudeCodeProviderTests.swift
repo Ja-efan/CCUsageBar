@@ -16,24 +16,22 @@ final class ClaudeCodeProviderTests: XCTestCase {
         XCTAssertEqual(usage.window(id: "model:Fable")?.kind, .model(name: "Fable", minutes: 10080))
     }
 
-    /// The UI still reads `UsageSnapshot`; going through `ProviderUsage` must not change it.
-    func testRoundTripKeepsSnapshot() throws {
-        let snap = try realSnapshot()
-        let back = UsageSnapshot(try ClaudeCodeProvider.usage(from: snap).get())
-        XCTAssertEqual(back, snap)
-    }
-
     func testFailureKeepsReasonAndRaw() {
         let result = ClaudeCodeProvider.usage(from: UsageSnapshot(error: .notLoggedIn, raw: "Not logged in"))
         XCTAssertEqual(result, .failure(ProviderFailure(.notLoggedIn, raw: "Not logged in")))
-        let shown = UsageSnapshot(ProviderFailure(.notLoggedIn, raw: "Not logged in"))
-        XCTAssertEqual(shown.error, .notLoggedIn)
-        XCTAssertEqual(shown.raw, "Not logged in")
     }
 
-    func testErrorMappingRoundTrips() {
+    func testResetTimesAreParsed() throws {
+        let snap = UsageSnapshot(sessionPercent: 1, sessionReset: "3pm (Asia/Seoul)", updatedAt: Date(timeIntervalSince1970: 0))
+        let usage = try ClaudeCodeProvider.usage(from: snap).get()
+        // 1970-01-01 09:00 KST → next 3pm KST is 06:00 UTC the same day.
+        XCTAssertEqual(usage.window(id: "5h")?.resetsAt, Date(timeIntervalSince1970: 6 * 3600))
+    }
+
+    func testErrorMapping() {
         let all: [UsageError] = [.claudeNotFound, .launchFailed, .noResponse, .notLoggedIn, .apiBilling, .unparsable]
-        for e in all { XCTAssertEqual(UsageError(ProviderError(e)), e) }
+        XCTAssertEqual(all.map(ProviderError.init),
+                       [.notInstalled, .launchFailed, .timeout, .notLoggedIn, .unsupportedPlan, .unparsable])
     }
 }
 

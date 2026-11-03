@@ -29,12 +29,25 @@ enum RawOutputWindow {
 struct RawOutputView: View {
     @ObservedObject var store: UsageStore
     @ObservedObject var settings: AppSettings
+    @State private var selected: ProviderID?
     private var s: Strings { settings.strings }
 
+    private var provider: (any UsageProvider)? {
+        store.shown.first { $0.id == selected } ?? store.shown.first
+    }
+
     var body: some View {
+        let state = provider.flatMap { store.states[$0.id] } ?? ProviderState()
         VStack(alignment: .leading, spacing: 10) {
+            if store.shown.count > 1 {
+                Picker("", selection: Binding(get: { provider?.id }, set: { selected = $0 })) {
+                    ForEach(store.shown, id: \.id) { Text($0.displayName).tag(Optional($0.id)) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
             ScrollView([.vertical, .horizontal]) {
-                Text(store.snapshot.raw.isEmpty ? s.notYet : store.snapshot.raw)
+                Text(state.raw.isEmpty ? s.notYet : state.raw)
                     .font(.system(size: 11, design: .monospaced))
                     .textSelection(.enabled)
                     .fixedSize(horizontal: true, vertical: true)
@@ -44,18 +57,22 @@ struct RawOutputView: View {
             .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 6))
 
             HStack {
-                Text(s.updated(store.snapshot.updatedAt.formatted(date: .omitted, time: .standard)))
-                    .font(.caption).foregroundStyle(.secondary)
+                if let time = state.lastAttempt {
+                    Text(s.updated(time.formatted(date: .omitted, time: .standard)))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 Spacer()
-                Button(s.showInFinder) {
-                    let path = ClaudeCodeProvider().debugFiles.cleaned
-                    NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "")
+                // Only Claude's capture is saved to disk.
+                if let claude = provider as? ClaudeCodeProvider {
+                    Button(s.showInFinder) {
+                        NSWorkspace.shared.selectFile(claude.debugFiles.cleaned, inFileViewerRootedAtPath: "")
+                    }
                 }
                 Button(s.copy) {
                     NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(store.snapshot.raw, forType: .string)
+                    NSPasteboard.general.setString(state.raw, forType: .string)
                 }
-                .disabled(store.snapshot.raw.isEmpty)
+                .disabled(state.raw.isEmpty)
             }
         }
         .padding(14)

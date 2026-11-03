@@ -37,6 +37,7 @@ public enum UsageParser {
             }
         }
         snap.modelLimits = order.compactMap { models[$0] }
+        snap.plan = plan(in: cleaned)
 
         if !snap.hasUsage {
             if cleaned.contains("Not logged in") { snap.error = .notLoggedIn }
@@ -44,6 +45,12 @@ public enum UsageParser {
             else { snap.error = .unparsable }
         }
         return snap
+    }
+
+    /// Plan from the banner line, e.g. "Opus 5.5 · Claude Max" → "Max".
+    static func plan(in text: String) -> String? {
+        guard let r = text.range(of: #"·\s*Claude\s+(Max|Pro|Team|Enterprise)\b"#, options: .regularExpression) else { return nil }
+        return text[r].components(separatedBy: .whitespaces).last
     }
 
     static func isSessionHeader(_ l: String) -> Bool {

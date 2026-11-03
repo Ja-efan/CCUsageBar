@@ -48,26 +48,34 @@ final class TerminalScreenTests: XCTestCase {
     }
 }
 
-final class SnapshotUpdateTests: XCTestCase {
-    private let good = UsageSnapshot(sessionPercent: 40, weekPercent: 10, raw: "ok",
-                                     updatedAt: Date(timeIntervalSince1970: 100))
+final class ProviderStateTests: XCTestCase {
+    private let good = ProviderUsage(windows: [UsageWindow(id: "5h", kind: .rolling(minutes: 300), usedPercent: 40)],
+                                     fetchedAt: Date(timeIntervalSince1970: 100), raw: "ok")
 
     func testFailureKeepsLastGoodValues() {
-        let failed = UsageSnapshot(error: .noResponse, raw: "timeout", updatedAt: Date(timeIntervalSince1970: 200))
-        let shown = good.updated(with: failed)
-        XCTAssertEqual(shown.sessionPercent, 40)
-        XCTAssertEqual(shown.updatedAt, good.updatedAt)
-        XCTAssertEqual(shown.error, .noResponse)
-        XCTAssertEqual(shown.raw, "timeout")
+        var state = ProviderState()
+        state.apply(.success(good))
+        state.apply(.failure(ProviderFailure(.timeout, raw: "timeout")))
+        XCTAssertEqual(state.usage, good)
+        XCTAssertEqual(state.error, .timeout)
+        XCTAssertEqual(state.raw, "timeout")
+        XCTAssertTrue(state.isStale)
     }
 
-    func testSuccessReplaces() {
-        let next = UsageSnapshot(sessionPercent: 41, weekPercent: 11)
-        XCTAssertEqual(good.updated(with: next), next)
+    func testSuccessReplacesAndClearsError() {
+        var state = ProviderState()
+        state.apply(.failure(ProviderFailure(.timeout)))
+        state.apply(.success(good))
+        XCTAssertEqual(state.usage, good)
+        XCTAssertNil(state.error)
+        XCTAssertFalse(state.isStale)
     }
 
-    func testFirstFailureIsShownAsIs() {
-        let failed = UsageSnapshot(error: .notLoggedIn)
-        XCTAssertEqual(UsageSnapshot().updated(with: failed), failed)
+    func testFirstFailureHasNoValues() {
+        var state = ProviderState()
+        state.apply(.failure(ProviderFailure(.notLoggedIn)))
+        XCTAssertNil(state.usage)
+        XCTAssertEqual(state.error, .notLoggedIn)
+        XCTAssertFalse(state.isStale)
     }
 }

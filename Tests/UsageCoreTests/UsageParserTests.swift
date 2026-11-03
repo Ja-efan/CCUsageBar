@@ -64,5 +64,6 @@ final class RealOutputTests: XCTestCase {
         XCTAssertEqual(snap.weekPercent, 10)
         XCTAssertEqual(snap.weekReset, "Nov 8 at 9am (Asia/Seoul)")
         XCTAssertEqual(snap.modelLimits, [ModelLimit(name: "Fable", percent: 2, reset: "Nov 8 at 9am (Asia/Seoul)")])
+        XCTAssertEqual(snap.plan, "Max")
     }
 }

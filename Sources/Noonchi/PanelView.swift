@@ -1,27 +1,97 @@
 import SwiftUI
 import UsageCore
 
-struct UsageRow: View {
-    let title: String
-    let percent: Int?
-    let reset: String?
+/// One window on one line: label, thin bar, percent, reset time.
+struct WindowRow: View {
+    let window: UsageWindow
+    let stale: Bool
     @ObservedObject var settings: AppSettings
 
     var body: some View {
+        let s = settings.strings
+        let percent = Int(window.usedPercent.rounded())
         let color = settings.color(for: percent)
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(title).font(.headline)
-                Spacer()
-                Text(percent.map { "\($0)%" } ?? "–")
-                    .font(.system(.title3, design: .rounded).bold())
-                    .foregroundStyle(color)
+        HStack(spacing: 8) {
+            Text(s.windowLabel(window.kind))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .frame(width: 46, alignment: .leading)
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.primary.opacity(0.1))
+                    Capsule().fill(color)
+                        .frame(width: g.size.width * min(max(window.usedPercent, 0), 100) / 100)
+                }
             }
-            ProgressView(value: Double(percent ?? 0), total: 100).tint(color)
-            if let reset {
-                Text(settings.strings.resets(reset)).font(.caption).foregroundStyle(.secondary)
+            .frame(height: 4)
+            .opacity(stale ? 0.45 : 1)
+            Text("\(percent)%")
+                .fontWeight(.medium)
+                .foregroundStyle(color)
+                .opacity(stale ? 0.45 : 1)
+                .frame(width: 36, alignment: .trailing)
+            resetText
+                .font(.system(size: 11))
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+                .frame(width: 72, alignment: .trailing)
+        }
+        .font(.system(size: 12).monospacedDigit())
+        .frame(height: 22)
+    }
+
+    @ViewBuilder private var resetText: some View {
+        if let date = window.resetsAt {
+            // "42분 후" has to count down while the panel is open.
+            TimelineView(.everyMinute) { context in
+                Text(settings.strings.reset(ResetDisplay(date, now: context.date)))
+            }
+        } else {
+            Text(window.resetText.map(ResetDisplay.trimmed) ?? "")
+        }
+    }
+}
+
+/// A service's header, its windows, and a line explaining any problem.
+struct ProviderSection: View {
+    let provider: any UsageProvider
+    let state: ProviderState
+    @ObservedObject var settings: AppSettings
+
+    var body: some View {
+        let s = settings.strings
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
+                Label(provider.displayName, systemImage: provider.symbolName)
+                    .font(.system(size: 13, weight: .semibold))
+                Spacer()
+                Text(meta(s)).font(.system(size: 11)).foregroundStyle(.tertiary)
+            }
+            .padding(.bottom, 6)
+
+            if let usage = state.usage {
+                ForEach(usage.windows) { WindowRow(window: $0, stale: state.isStale, settings: settings) }
+            }
+            if let error = state.error {
+                HStack(spacing: 6) {
+                    Circle().fill(.orange).frame(width: 6, height: 6)
+                    Text(state.isStale ? "\(s.error(error)) · \(s.retryNext)" : s.error(error))
+                }
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .padding(.top, 2)
+            } else if state.usage == nil {
+                Text(s.loading).font(.system(size: 11)).foregroundStyle(.secondary)
             }
         }
+        .padding(.horizontal, 14)
+        .padding(.top, 12)
+        .padding(.bottom, 10)
+    }
+
+    private func meta(_ s: Strings) -> String {
+        if state.isStale, let usage = state.usage { return s.valueAt(s.clock(usage.fetchedAt)) }
+        return state.usage?.plan ?? ""
     }
 }
 
@@ -41,63 +111,70 @@ struct PanelView: View {
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text(s.title).font(.title3.bold())
-                    UsageRow(title: s.session, percent: store.snapshot.sessionPercent,
-                             reset: store.snapshot.sessionReset, settings: settings)
-                    UsageRow(title: s.weekAll, percent: store.snapshot.weekPercent,
-                             reset: store.snapshot.weekReset, settings: settings)
-                    ForEach(store.snapshot.modelLimits) { m in
-                        UsageRow(title: s.weekModel(m.name), percent: m.percent, reset: m.reset, settings: settings)
+                VStack(alignment: .leading, spacing: 0) {
+                    if store.shown.isEmpty {
+                        Text(s.noProviders)
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                            .padding(14)
                     }
-
-                    if let e = store.snapshot.error {
-                        Label(s.error(e), systemImage: "exclamationmark.triangle")
-                            .font(.caption).foregroundStyle(.orange)
+                    ForEach(Array(store.shown.enumerated()), id: \.element.id) { i, provider in
+                        if i > 0 { Divider() }
+                        ProviderSection(provider: provider, state: store.states[provider.id] ?? ProviderState(),
+                                        settings: settings)
                     }
-
-                    Button {
-                        RawOutputWindow.show(store: store, settings: settings)
-                    } label: {
-                        Label(s.showRawOutput, systemImage: "doc.text.magnifyingglass")
-                    }
-                    .buttonStyle(.link)
-                    .font(.caption)
                 }
-                .padding(16)
                 .background(GeometryReader { g in
                     Color.clear.preference(key: ContentHeightKey.self, value: g.size.height)
                 })
             }
             // A ScrollView has no natural height inside a menu bar panel, so size it
             // to the measured content (capped); otherwise it collapses to zero.
-            .frame(height: min(max(store.contentHeight, 120), PanelView.maxContentHeight))
+            .frame(height: min(max(store.contentHeight, 44), PanelView.maxContentHeight))
             .onPreferenceChange(ContentHeightKey.self) { store.contentHeight = $0 }
 
             Divider()
 
             // Footer stays visible while the content scrolls.
-            HStack(spacing: 8) {
+            HStack(spacing: 2) {
                 if store.isLoading {
-                    ProgressView().controlSize(.small)
-                    Text(s.loading).font(.caption)
-                } else if store.hasLoaded {
-                    Text(s.updated(store.snapshot.updatedAt.formatted(date: .omitted, time: .shortened)))
-                        .font(.caption).foregroundStyle(.secondary)
+                    Text(s.refreshing)
+                } else if let time = store.lastUpdated {
+                    Text(s.updated(s.clock(time)))
                 }
                 Spacer()
                 Button {
-                    SettingsWindow.show(store: store, settings: settings)
+                    store.refresh()
                 } label: {
-                    Image(systemName: "gearshape")
+                    if store.isLoading {
+                        ProgressView().controlSize(.mini).frame(width: 24, height: 22)
+                    } else {
+                        Image(systemName: "arrow.clockwise").frame(width: 24, height: 22)
+                    }
                 }
-                .help(s.settings)
-                Button(s.refresh) { store.refresh() }.disabled(store.isLoading)
-                Button(s.quit) { NSApp.terminate(nil) }
+                .buttonStyle(.borderless)
+                .disabled(store.isLoading)
+                .help(s.refresh)
+                Menu {
+                    Button(s.settingsMenu) { SettingsWindow.show(store: store, settings: settings) }
+                        .keyboardShortcut(",")
+                    Button(s.showRawOutput) { RawOutputWindow.show(store: store, settings: settings) }
+                    Divider()
+                    Button(s.quit) { NSApp.terminate(nil) }
+                        .keyboardShortcut("q")
+                } label: {
+                    Image(systemName: "ellipsis")
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help(s.more)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .font(.system(size: 11))
+            .foregroundStyle(.secondary)
+            .padding(.leading, 14)
+            .padding(.trailing, 8)
+            .padding(.vertical, 7)
         }
-        .frame(width: 340)
+        .frame(width: 320)
     }
 }
