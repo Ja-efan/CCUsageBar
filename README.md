@@ -53,8 +53,8 @@ Claude Code의 **5시간 세션 사용률**과 **주간 사용률**을 macOS 메
 ## 설치
 
 ```bash
-git clone https://github.com/Ja-efan/CCUsageBar.git
-cd CCUsageBar
+git clone https://github.com/Ja-efan/Noonchi.git
+cd Noonchi
 make install      # 빌드 → ~/Applications 설치 → 실행
 ```
 
