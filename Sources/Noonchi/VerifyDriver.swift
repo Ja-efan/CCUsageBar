@@ -34,7 +34,35 @@ enum VerifyDriver {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { NSApp.unhideWithoutActivation() }
     }
 
+    private static func releaseKeyboard() {
+        for window in NSApp.windows where window.isKeyWindow { window.resignKey() }
+        NSApp.deactivate()
+    }
+
+    private static var heldKeyboardSince: Date?
+
+    /// Keyboard input can land here without the frontmost app changing, so watching the
+    /// frontmost app measures nothing. This logs what the app itself holds.
+    private static func logKeyboard() {
+        guard let dir else { return }
+        let holding = NSApp.isActive || NSApp.windows.contains { $0.isKeyWindow }
+        if holding, heldKeyboardSince == nil {
+            heldKeyboardSince = Date()
+        } else if !holding, let since = heldKeyboardSince {
+            heldKeyboardSince = nil
+            let line = String(format: "%.1f\n", Date().timeIntervalSince(since))
+            if let handle = FileHandle(forWritingAtPath: dir + "/keyboard.log") {
+                _ = try? handle.seekToEnd()
+                try? handle.write(contentsOf: Data(line.utf8))
+                try? handle.close()
+            } else {
+                try? line.write(toFile: dir + "/keyboard.log", atomically: true, encoding: .utf8)
+            }
+        }
+    }
+
     private static func poll() {
+        logKeyboard()
         // Mid-handback the windows are hidden; the command waits for them to return.
         guard !NSApp.isHidden, let dir, let line = try? String(contentsOfFile: dir + "/cmd", encoding: .utf8) else { return }
         try? FileManager.default.removeItem(atPath: dir + "/cmd")
@@ -58,6 +86,8 @@ enum VerifyDriver {
         case "click-status":
             guard let button = statusButton else { return ["ok": false, "error": "no status button"] }
             button.performClick(nil)
+            // The panel takes the keyboard without changing the frontmost app. Give it back.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { releaseKeyboard() }
             return ["ok": true]
         case "state":
             guard let store else { return ["ok": false, "error": "no store"] }

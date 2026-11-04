@@ -160,6 +160,7 @@ cmd_start() {
     local key="${pair%%=*}" value="${pair#*=}"
     case "$value" in
       true|false) defaults write "$BUNDLE_ID" "$key" -bool "$value" ;;
+      *,*) IFS=, read -r -a items <<<"$value"; defaults write "$BUNDLE_ID" "$key" -array "${items[@]}" ;;
       *) defaults write "$BUNDLE_ID" "$key" -string "$value" ;;
     esac
   done
@@ -348,6 +349,7 @@ print('window height', panel['frame']['h'], 'gap below menu item', info['status'
 
 cmd_stop() {
   local run; run="$(run_dir)"
+  echo "keyboard held (s): $(tr '\n' ' ' < "$run/ctl/keyboard.log" 2>/dev/null)"
   if [ -f "$run/pid" ] && is_our_app "$(cat "$run/pid")"; then kill "$(cat "$run/pid")" 2>/dev/null || true; fi
   sleep 0.5
   # A replaced app has a new pid. Everything this run started is matched by its folder, never by name.
@@ -373,6 +375,7 @@ case "$command" in
   press-refresh) cmd_press_refresh ;;
   close-settings) cmd_close_settings ;;
   state) send state ;;
+  keyboard) cat "$(run_dir)/ctl/keyboard.log" 2>/dev/null || echo "none" ;;
   set-update) cmd_set_update "$@" ;;
   open-update) cmd_open_update ;;
   wait-new-app) cmd_wait_new_app ;;
@@ -385,5 +388,5 @@ case "$command" in
   gap) cmd_gap ;;
   stop) cmd_stop ;;
   evidence) evidence ;;
-  *) echo "usage: control-noonchi build|start [key=value...]|doctor|send <cmd>|open-panel|close-panel|open-settings [tab]|close-settings|set-update <version> [kind]|open-update|wait-new-app|refresh|press-refresh|state|settings|wait-idle|set-claude ...|set-codex ...|set-plan <text>|shot <name>|region <name>|gap|evidence|stop" >&2; exit 2 ;;
+  *) echo "usage: control-noonchi build|start [key=value...]|doctor|send <cmd>|open-panel|close-panel|open-settings [tab]|close-settings|set-update <version> [kind]|open-update|wait-new-app|refresh|press-refresh|state|keyboard|settings|wait-idle|set-claude ...|set-codex ...|set-plan <text>|shot <name>|region <name>|gap|evidence|stop" >&2; exit 2 ;;
 esac
