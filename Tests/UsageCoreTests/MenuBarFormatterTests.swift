@@ -66,7 +66,8 @@ final class MenuBarFormatterTests: XCTestCase {
         XCTAssertEqual(auto.first?.ringPercent, 50)
         let custom = MenuBarFormatter.items(for: [(claude, hot)], mode: .custom, selected: ["claude:5h", "claude:week"],
                                             labeled: false, highlightHigh: true)
-        XCTAssertEqual(custom.first?.highlight, .critical)
+        XCTAssertEqual(custom.first?.highlight, .critical, "the icon takes the highest")
+        XCTAssertEqual(custom.first?.parts.map(\.highlight), [Highlight.none, .critical], "each value keeps its own color")
         let off = MenuBarFormatter.items(for: [(claude, hot)], mode: .custom, selected: ["claude:week"],
                                          labeled: false, highlightHigh: false)
         XCTAssertEqual(off.first?.highlight, Highlight.none)

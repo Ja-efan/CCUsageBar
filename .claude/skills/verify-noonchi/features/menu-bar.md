@@ -8,7 +8,7 @@ The menu bar item shows one entry per service. Automatic mode shows each service
 - `bar-custom` shows only picked windows, in the order picked.
 - `bar-labels` shows `5h 19%` instead of `19%`.
 - `bar-icons` draws symbol, letter, or ring.
-- `bar-highlight` colors high usage, and only when the setting is on.
+- `bar-highlight` colors each high value on its own, plus the icon, and only when the setting is on.
 - `bar-states` shows `…` while loading and `⚠︎` with nothing to show.
 
 ## How to get to it (user POV)
@@ -21,7 +21,7 @@ Preconditions: `$C start` has returned.
 
 - **Automatic.** Run `$C shot auto`. `auto-menubar.png` shows the asterisk with 5%, and the hexagon with 7%. `auto-menubar.json` has `"template" : true`.
 - **High usage.** Run `$C set-claude 5h=86 week=24 Fable=9`, then `$C refresh`, then `$C close-panel`, then `$C shot high`. `high-menubar.png` shows 86% in orange, and the JSON has `"template" : false`.
-- **Custom and labels.** Run `$C open-settings`, `$C send segment Custom`, `$C send toggle Labels`, `$C send tab Services`, `$C send press Fable`, then `$C shot custom`. `$C settings` shows `menuBar.mode = custom`, `menuBar.labeled = True`, and the items. The image shows `5h 86% · Fable 9%`, in orange.
+- **Custom and labels.** Run `$C open-settings`, `$C send segment Custom`, `$C send toggle Labels`, `$C send tab Services`, `$C send press Fable`, then `$C shot custom`. `$C settings` shows `menuBar.mode = custom`, `menuBar.labeled = True`, and the items. The image shows `5h 86% · Fable 9%`, with only `5h 86%` and the icon in orange.
 - **No 5-hour limit (Ultra).** Run `$C set-plan "Claude Ultra"`, `$C set-claude week=40 Fable=5`, `$C refresh`, `$C shot ultra`. Automatic shows 40%. The panel header says Ultra and has no 5-hour row. In Custom with only `5h` picked, it shows 40% rather than a dash.
 - **Icon.** On the General tab run `$C send press Symbol`, then `$C send press Letter`, then `$C shot letter`. The image shows a boxed C and X.
 

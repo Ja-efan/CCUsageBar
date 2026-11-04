@@ -27,12 +27,23 @@ public enum Highlight: Int, Comparable, Sendable {
 
 /// One service's part of the menu bar.
 public struct MenuBarItem: Equatable, Sendable {
+    /// One value, colored on its own so a high limit doesn't make the others look high.
+    public struct Part: Equatable, Sendable {
+        public var text: String
+        public var highlight: Highlight
+    }
+
+    public static let separator = " · "
+
     public var providerID: ProviderID
-    /// "19%", "5h 19% · 7d 20%", "…" while loading, "⚠︎" when there's nothing to show.
-    public var text: String
+    /// "19%", or "5h 19%" and "7d 20%". "…" while loading, "⚠︎" when there's nothing to show.
+    public var parts: [Part]
     /// For the ring icon: the first shown window's usage.
     public var ringPercent: Double?
-    public var highlight: Highlight
+
+    public var text: String { parts.map(\.text).joined(separator: Self.separator) }
+    /// The icon's color: the highest of the parts.
+    public var highlight: Highlight { parts.map(\.highlight).max() ?? .none }
 }
 
 /// Menu bar content. Kept out of the app target so it can be tested.
@@ -59,18 +70,15 @@ public enum MenuBarFormatter {
                 }
             }
             guard let usage = state.usage else {
-                return MenuBarItem(providerID: id, text: state.error == nil ? "…" : "⚠︎", ringPercent: nil, highlight: .none)
+                return MenuBarItem(providerID: id, parts: [.init(text: state.error == nil ? "…" : "⚠︎", highlight: .none)], ringPercent: nil)
             }
             let windows = windowIDs.map { usage.window(id: $0) }
-            let parts = zip(windowIDs, windows).map { id, window -> String in
+            let parts = zip(windowIDs, windows).map { id, window -> MenuBarItem.Part in
                 let pct = window.map { "\(Int($0.usedPercent.rounded()))%" } ?? "–"
-                guard labeled else { return pct }
-                return "\(window?.kind.shortLabel ?? shortLabel(forID: id)) \(pct)"
+                return MenuBarItem.Part(text: labeled ? "\(window?.kind.shortLabel ?? shortLabel(forID: id)) \(pct)" : pct,
+                                        highlight: window.map { Highlight(percent: $0.usedPercent, enabled: highlightHigh) } ?? .none)
             }
-            let percents = windows.compactMap { $0?.usedPercent }
-            return MenuBarItem(providerID: id, text: parts.joined(separator: " · "),
-                               ringPercent: percents.first,
-                               highlight: percents.map { Highlight(percent: $0, enabled: highlightHigh) }.max() ?? .none)
+            return MenuBarItem(providerID: id, parts: parts, ringPercent: windows.compactMap { $0?.usedPercent }.first)
         }
     }
 

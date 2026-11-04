@@ -62,19 +62,27 @@ private struct MenuBarContent: View {
     var body: some View {
         HStack(spacing: 8) {
             ForEach(items, id: \.providerID) { item in
-                let color = AppSettings.color(for: item.highlight) ?? base
                 HStack(spacing: 3) {
                     if let provider = Providers.all.first(where: { $0.id == item.providerID }) {
                         ProviderGlyph(provider: provider, style: style, percent: item.ringPercent)
+                            .foregroundStyle(AppSettings.color(for: item.highlight) ?? base)
                     }
-                    Text(item.text)
+                    text(for: item)
                 }
-                .foregroundStyle(color)
             }
         }
         .font(.system(size: 13).monospacedDigit())
         .fixedSize()
         .padding(.vertical, 1)
+    }
+
+    private func text(for item: MenuBarItem) -> Text {
+        var result = Text("")
+        for (i, part) in item.parts.enumerated() {
+            if i > 0 { result = result + Text(MenuBarItem.separator).foregroundColor(base) }
+            result = result + Text(part.text).foregroundColor(AppSettings.color(for: part.highlight) ?? base)
+        }
+        return result
     }
 }
 
