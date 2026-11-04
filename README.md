@@ -25,7 +25,7 @@ Method and data: [`docs/benchmark.md`](docs/benchmark.md) (in Korean)
 
 Good to know:
 - Each Claude Code refresh launches Claude Code once, which costs about 2.6 s of CPU (about 30 s per hour at the default 5-minute interval). A Codex refresh asks `codex app-server` once, about 0.2–0.3 s. Set a longer interval in Settings to use less. Refreshes are skipped while the screen is off.
-- App memory of about 24 MB (measured over one hour, no growth) was measured on v0.3.
+- The app itself uses about 26 MB of memory and 3 s of CPU per hour with both services at their old intervals (measured over one hour; memory went from 20 MB to 26 MB).
 - Claude Code records Noonchi's working folder (`~/Library/Application Support/Noonchi`) in the project list in `~/.claude.json`. Noonchi doesn't write that file itself.
 - There are no automatic updates. If a CLI changes its output, you'll need to update Noonchi yourself.
 
