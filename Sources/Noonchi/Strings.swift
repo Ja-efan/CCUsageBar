@@ -59,8 +59,8 @@ struct Strings {
     func updateCurrent(_ version: String) -> String { t("지금 버전은 \(version)입니다.", "This is version \(version).") }
     func updateAvailable(_ version: String) -> String { t("\(version) 버전이 나왔습니다", "Version \(version) is available") }
     func updateInstallNote(_ current: String) -> String {
-        t("지금 버전은 \(current)입니다. 설치하면 GitHub 릴리스에서 내려받아 교체하고 앱을 다시 엽니다. 설정은 유지됩니다. 이 앱은 Apple 공증을 받지 않았습니다.",
-          "You have \(current). Installing downloads it from GitHub Releases, replaces the app, and reopens it. Your settings stay. This app isn't notarized by Apple.")
+        t("지금 버전은 \(current)입니다. 설치하면 GitHub 릴리스에서 내려받아 교체하고 앱을 다시 엽니다. 설정은 유지됩니다.",
+          "You have \(current). Installing downloads it from GitHub Releases, replaces the app, and reopens it. Your settings stay.")
     }
     var updateFromSource: String { t("이 빌드는 소스에서 설치합니다. 브랜치를 옮긴 뒤 make install을 실행하세요.", "This build installs from source. Rebase the branch and run make install.") }
     var done: String { t("확인", "OK") }
