@@ -34,7 +34,8 @@ final class UsageStore: ObservableObject {
             Task { @MainActor in self?.readDueServices() }
         }
         observeScreen()
-        UpdateWindow.showIfLastUpdateFailed(settings: AppSettings.shared)
+        // This runs while SwiftUI builds the scene, and opening a window then aborts the app.
+        DispatchQueue.main.async { UpdateWindow.showIfLastUpdateFailed(settings: AppSettings.shared) }
     }
 
     private func startTimer(_ interval: RefreshInterval) {
