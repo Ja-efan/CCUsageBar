@@ -67,10 +67,14 @@ public struct ClaudeCodeProvider: UsageProvider {
         var (raw, err) = capture(claudePath: claude, arguments: Self.launchArguments)
         // A CLI that no longer knows the flag must still give a reading.
         if Self.rejectedArguments(raw) { (raw, err) = capture(claudePath: claude, arguments: []) }
-        // Read the final screen; fall back to the stream if the view scrolled off.
-        let screen = TerminalScreen.render(raw, columns: Self.columns, rows: Self.rows).text
-        var snap = UsageParser.parse(screen)
-        if !snap.hasUsage {
+        let screen = TerminalScreen.render(raw, columns: Self.columns, rows: Self.rows)
+        var snap = UsageParser.parse(screen.text)
+        if screen.overflowed {
+            // The CLI updates numbers in place and can't reach lines above the top, so neither
+            // the rest of the screen nor the stream can be trusted. A partial reading would
+            // look complete: a missing session limit is normal on plans that don't have one.
+            snap = UsageSnapshot(error: .unparsable, raw: snap.raw)
+        } else if !snap.hasUsage {
             let fromStream = UsageParser.parse(TerminalText.clean(raw))
             if fromStream.hasUsage { snap = fromStream }
         }
@@ -93,8 +97,7 @@ public struct ClaudeCodeProvider: UsageProvider {
     }
 
     static let columns = 140
-    /// `/usage` grows with local session stats. Anything taller than this scrolls the session
-    /// limit off the top, and the weekly limits still parse, so nothing reports a failure.
+    /// `/usage` grows with local session stats: about 70 rows on a heavily used machine.
     static let rows = 200
 
     /// Last captured screen, for troubleshooting parser issues.

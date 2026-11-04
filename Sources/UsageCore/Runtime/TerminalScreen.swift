@@ -9,6 +9,8 @@ import Foundation
 public struct TerminalScreen {
     public let columns: Int
     public let rows: Int
+    /// Content went past the bottom and lines were lost off the top since the last clear.
+    public private(set) var overflowed = false
     private var grid: [[Unicode.Scalar]]
     private var row = 0
     private var col = 0
@@ -167,6 +169,7 @@ public struct TerminalScreen {
         case "M":
             for _ in 0..<min(n(0), rows - row) { grid.remove(at: row); grid.append(blankLine) }
         case "S":
+            overflowed = true
             for _ in 0..<min(n(0), rows) { grid.removeFirst(); grid.append(blankLine) }
         case "T":
             for _ in 0..<min(n(0), rows) { grid.removeLast(); grid.insert(blankLine, at: 0) }
@@ -184,6 +187,7 @@ public struct TerminalScreen {
 
     private mutating func clear() {
         grid = Array(repeating: blankLine, count: rows)
+        overflowed = false
     }
 
     private mutating func fill(_ r: Int, _ range: ClosedRange<Int>) {
@@ -194,6 +198,7 @@ public struct TerminalScreen {
     private mutating func lineFeed() {
         pendingWrap = false
         if row == rows - 1 {
+            overflowed = true
             grid.removeFirst(); grid.append(blankLine)
         } else {
             row += 1

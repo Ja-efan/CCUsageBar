@@ -85,26 +85,25 @@ final class TrustPromptTests: XCTestCase {
 }
 
 final class TallUsageScreenTests: XCTestCase {
-    /// Stands in for `claude`: a prompt, then a `/usage` screen so long that on a short terminal
-    /// only the session limit is lost. The weekly limits stay readable, so no fallback runs.
-    private let script = """
-    #!/bin/sh
-    printf '\\342\\235\\257 \\n'
-    read -r _
-    echo 'Current session'
-    echo '60% used'
-    echo 'Resets 3:20am (Asia/Seoul)'
-    i=0; while [ $i -lt 60 ]; do echo "stats line $i"; i=$((i+1)); done
-    echo 'Current week (all models)'
-    echo '45% used'
-    echo 'Resets Nov 8 at 9am (Asia/Seoul)'
-    echo 'Current week (Fable)'
-    echo '2% used'
-    echo 'Resets Nov 8 at 9am (Asia/Seoul)'
-    sleep 30
-    """
-
-    func testSessionLimitSurvivesATallScreen() throws {
+    /// Stands in for `claude`: a prompt, then a `/usage` screen with `statsLines` rows between the
+    /// session limit and the weekly ones, like the stats that push the session limit off the top.
+    private func read(statsLines: Int) throws -> UsageSnapshot {
+        let script = """
+        #!/bin/sh
+        printf '\\342\\235\\257 \\n'
+        read -r _
+        echo 'Current session'
+        echo '60% used'
+        echo 'Resets 3:20am (Asia/Seoul)'
+        i=0; while [ $i -lt \(statsLines) ]; do echo "stats line $i"; i=$((i+1)); done
+        echo 'Current week (all models)'
+        echo '45% used'
+        echo 'Resets Nov 8 at 9am (Asia/Seoul)'
+        echo 'Current week (Fable)'
+        echo '2% used'
+        echo 'Resets Nov 8 at 9am (Asia/Seoul)'
+        sleep 30
+        """
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -114,10 +113,23 @@ final class TallUsageScreenTests: XCTestCase {
 
         setenv("NOONCHI_CLAUDE_PATH", fake.path, 1)
         defer { unsetenv("NOONCHI_CLAUDE_PATH") }
-        let snap = ClaudeCodeProvider(workDirectory: dir.path).readSnapshot()
+        return ClaudeCodeProvider(workDirectory: dir.path).readSnapshot()
+    }
 
+    func testSessionLimitSurvivesATallScreen() throws {
+        let snap = try read(statsLines: 60)
         XCTAssertEqual(snap.sessionPercent, 60)
         XCTAssertEqual(snap.sessionReset, "3:20am (Asia/Seoul)")
         XCTAssertEqual(snap.weekPercent, 45)
+    }
+
+    /// Showing the weekly limits alone would look like a plan with no session limit.
+    func testAScreenTallerThanTheTerminalFailsInsteadOfReadingPartly() throws {
+        let snap = try read(statsLines: ClaudeCodeProvider.rows)
+        XCTAssertNil(snap.weekPercent)
+        guard case .failure(let failure) = ClaudeCodeProvider.usage(from: snap) else {
+            return XCTFail("a partial screen must not become a reading")
+        }
+        XCTAssertEqual(failure.error, .unparsable)
     }
 }
