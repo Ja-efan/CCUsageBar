@@ -6,9 +6,12 @@
 
 Noonchi shows the limits as numbers in the macOS menu bar. The panel lists every limit of each service on one line — 5-hour, weekly, per-model weekly caps such as Fable, Codex's 30-day window — with its reset time.
 
-```
-✳ 19%  ⬡ 7%
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/panel-en-dark.png">
+  <img src="docs/images/panel-en-light.png" alt="Noonchi menu bar item and open panel showing Claude Code and Codex limits" width="368">
+</picture>
+
+<sub>Sample values.</sub>
 
 ## Features
 
@@ -16,7 +19,7 @@ Noonchi shows the limits as numbers in the macOS menu bar. The panel lists every
 - **It never reads your credentials.** No Keychain, no browser cookies, no auth files under `~/.claude` or `~/.codex`, no conversation logs. It uses what the official `claude` and `codex` CLIs report.
 - **The app itself makes no network requests.** Only the CLIs talk to their servers. The app has no networking code and no auto-updater.
 - **It reads the screen after it finishes updating.** Claude Code's `/usage` first draws cached numbers, then overwrites only the digits that changed. Noonchi replays the output on an emulated terminal screen and reads the final values. In 30 real captures, the old approach (reading the output as plain text) returned the pre-refresh value 23 times; the current approach matched Claude Code's screen all 30 times.
-- **It warns you when you're on track to hit a limit.** Only when your pace so far would reach a limit before it resets, the panel shows one line ("At this pace, the 5-hour limit hits at 3:10 PM"). It keeps no history; it works from the current values.
+- **It warns you when you're on track to hit a limit.** Only when your pace so far would reach a limit before it resets, the panel shows one line ("On pace to hit the 5-hour limit by 3:10 PM"). It keeps no history; it works from the current values.
 
 Method and data: [`docs/benchmark.md`](docs/benchmark.md) (in Korean)
 
@@ -30,13 +33,15 @@ Good to know:
 
 Open them from `⋯` › Settings at the bottom of the panel. Changes are saved automatically.
 
+<img src="docs/images/settings-en.png" alt="Settings: General and Services tabs" width="700">
+
 | Tab | Setting | Options |
 |---|---|---|
-| General | Show | Automatic (each service's 5-hour limit) / Custom (pick items in the Services tab) |
+| General | Display | Automatic (each service's 5-hour limit) / Custom (pick items in the Services tab) |
 | | Labels | Off `19%` / on `5h 19%` |
 | | Icon | Symbol / Letter / Ring (fills with usage) |
 | | Highlight high usage | Orange at 80%, red at 95% (on by default) |
-| | Bar color | System / 7 presets / custom |
+| | Bar color | System / 7 presets |
 | | Language | 한국어 / English (defaults to the system language) |
 | | Open at login | Registers Noonchi as a macOS login item |
 | Services | Each service | Detection status and path, on/off, menu bar items in Custom mode |
@@ -60,11 +65,15 @@ Noonchi looks for `claude` in `~/.local/bin`, `~/.claude/local`, `/opt/homebrew/
 
 ## Install
 
+**Build from source (recommended).** Needs Xcode or the Command Line Tools.
+
 ```bash
 git clone https://github.com/Ja-efan/Noonchi.git
 cd Noonchi
 make install      # build → install to ~/Applications → launch
 ```
+
+**Download.** Get `Noonchi-x.y.z.zip` from [Releases](https://github.com/Ja-efan/Noonchi/releases/latest), unzip it, and move `Noonchi.app` to `~/Applications`. The app isn't notarized by Apple, so macOS blocks the first launch: try to open it once, then click **Open Anyway** in System Settings › Privacy & Security.
 
 To start it at login, turn on Settings › General › "Open at login".
 
@@ -115,7 +124,7 @@ Bump `VERSION` and push a tag. GitHub Actions runs the tests, builds the app, an
 git tag v0.1.0 && git push origin v0.1.0
 ```
 
-Released builds are ad-hoc signed, so the first launch may need right-click > Open.
+Released builds are ad-hoc signed and not notarized; see [Install](#install) for the first launch.
 
 ## License
 
