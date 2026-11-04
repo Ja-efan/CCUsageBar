@@ -1,0 +1,12 @@
+▗ ▗   ▖ ▖  Claude Code v2.1.280
+Opus 5.5 (1M context) · Claude Max
+▘▘ ▝▝    ~/Library/Application Support/Noonchi
+⚠ Your login expires in 3 days · run /login to renew
+Get to finished work sooner with Opus 5.5. Switch anytime with /model.
+/usage                                                  Show session cost, plan usage, and activity stats
+/usage-credits                                          Configure usage credits or request them from your admin when you hit a limit
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /usage
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+~/Library/Application Support/Noonchi  │  Opus 5.5 (1M context)·medium
+⏵⏵ auto mode on (shift+tab to cycle)

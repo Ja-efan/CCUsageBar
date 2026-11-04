@@ -104,6 +104,14 @@ public struct ClaudeCodeProvider: UsageProvider {
         try? FileManager.default.removeItem(atPath: workDirectory + "/last-output.raw.txt")
     }
 
+    /// The prompt line still holds "/usage" alone. A highlighted autocomplete row looks similar
+    /// but has its description after it.
+    static func commandStillTyped(_ screen: String) -> Bool {
+        screen.components(separatedBy: "\n").contains {
+            $0.trimmingCharacters(in: .whitespaces) == "❯ /usage"
+        }
+    }
+
     static func rejectedArguments(_ output: String) -> Bool {
         output.range(of: "unknown option", options: .caseInsensitive) != nil
     }
@@ -127,6 +135,7 @@ public struct ClaudeCodeProvider: UsageProvider {
         var sentUsage = false
         var sentAt = Date()
         var trustKeys = 0
+        var enterRetries = 0
 
         while Date().timeIntervalSince(start) < timeout {
             pty.drain()
@@ -153,6 +162,12 @@ public struct ClaudeCodeProvider: UsageProvider {
                 // them in place. Wait until the refresh is gone from the screen.
                 let s = pty.screen
                 let found = TerminalText.count(s, pattern: "\\d{1,3}\\s*%\\s*used") >= 2 && !s.contains("Refreshing")
+                // On a slow first launch the Enter can go unused, leaving the command typed
+                // but not run (issue #1). Sending it again is harmless if it's just late.
+                if !found, Self.commandStillTyped(s), since > 2.5 * Double(enterRetries + 1) {
+                    enterRetries += 1
+                    pty.send("\r")
+                }
                 if (found && since > 1.5) || since > 12 { usleep(300_000); break }
             }
         }

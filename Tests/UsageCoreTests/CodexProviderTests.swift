@@ -56,6 +56,30 @@ final class CodexProviderTests: XCTestCase {
         XCTAssertEqual(ProviderError(e), .notLoggedIn)
     }
 
+    /// Reported in issue #1 from codex-cli 0.147.0, which answers any params with this error.
+    func testRequestSendsNoParams() throws {
+        let dir = NSTemporaryDirectory() + "noonchi-\(UUID().uuidString)"
+        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: dir); unsetenv("NOONCHI_CODEX_PATH") }
+        let script = dir + "/codex"
+        try #"""
+        #!/bin/bash
+        while read -r line; do
+          id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
+          case "$line" in
+            *'"initialized"'*) ;;
+            *'"initialize"'*) echo "{\"id\":$id,\"result\":{}}" ;;
+            *'"params"'*rateLimits*|*rateLimits*'"params"'*) echo "{\"id\":$id,\"error\":{\"code\":-32600,\"message\":\"Invalid request: invalid type: map, expected unit\"}}" ;;
+            *rateLimits*) echo "{\"id\":$id,\"result\":{\"rateLimits\":{\"planType\":\"plus\",\"primary\":{\"usedPercent\":3,\"windowDurationMins\":300}}}}" ;;
+          esac
+        done
+        """#.write(toFile: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script)
+        setenv("NOONCHI_CODEX_PATH", script, 1)
+        let usage = try CodexProvider(workDirectory: dir).read().get()
+        XCTAssertEqual(usage.window(id: "5h")?.usedPercent, 3)
+    }
+
     func testRollingIDs() {
         XCTAssertEqual([300, 10080, 43200, 90].map(UsageWindow.rollingID), ["5h", "week", "30d", "90m"])
     }

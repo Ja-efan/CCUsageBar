@@ -40,6 +40,26 @@ final class ClaudeCodeProviderTests: XCTestCase {
     }
 }
 
+final class UsageCommandTests: XCTestCase {
+    /// The final screen from issue #1 (Claude Code 2.1.280): typed, never run.
+    private func recorded() throws -> String {
+        let url = try XCTUnwrap(Bundle.module.url(forResource: "usage-not-run-2.1.280", withExtension: "txt", subdirectory: "Fixtures"))
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    func testTypedButNotRunIsNoticedAndReadsAsNoUsage() throws {
+        let screen = try recorded()
+        XCTAssertTrue(ClaudeCodeProvider.commandStillTyped(screen))
+        XCTAssertFalse(UsageParser.parse(screen).hasUsage)
+    }
+
+    /// In a normal run the highlighted autocomplete row has a description after it.
+    func testAutocompleteRowIsNotTheTypedCommand() throws {
+        let url = try XCTUnwrap(Bundle.module.url(forResource: "real-2.1.310", withExtension: "txt", subdirectory: "Fixtures"))
+        XCTAssertFalse(ClaudeCodeProvider.commandStillTyped(try String(contentsOf: url, encoding: .utf8)))
+    }
+}
+
 final class TrustPromptTests: XCTestCase {
     /// The rendered screen Claude Code 2.1.310 shows for a new folder.
     private func recorded() throws -> String {

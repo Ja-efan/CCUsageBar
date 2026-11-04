@@ -57,6 +57,11 @@ if [ "\$(cat "$run/state/claude.mode")" = old-cli ] && [ \$# -gt 0 ]; then echo 
 echo "\$*" >> "$run/state/claude.args"
 printf '❯ '
 read -r -t 20 _ || exit 0
+# The Enter goes unused: the command stays typed on the prompt line (issue #1).
+if [ "\$(cat "$run/state/claude.mode")" = enter-lost ]; then
+  printf '❯ /usage\n'
+  read -r -t 20 _ || exit 0
+fi
 cat "$run/state/claude.txt"
 read -r -t 20 _ || true
 FAKE
@@ -87,6 +92,7 @@ cmd_set_claude() {
   case "${1:-}" in
     hang) echo hang > "$state/claude.mode"; return ;;
     old-cli) echo old-cli > "$state/claude.mode"; return ;;
+    enter-lost) echo enter-lost > "$state/claude.mode"; return ;;
     not-logged-in) echo ok > "$state/claude.mode"; echo "Not logged in · Please run /login" > "$state/claude.txt"; return ;;
   esac
   echo ok > "$state/claude.mode"; : > "$state/claude.txt"

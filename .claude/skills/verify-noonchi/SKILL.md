@@ -58,7 +58,7 @@ It fails unless the driver answers, the bundle ID is the verification one, and t
 | `$C send tick` | Does what the timer does when it fires, without waiting for it |
 | `$C send screen off`, `$C send screen on` | Acts as if the screen locked or came back |
 | `$C wait-idle` | Waits until nothing is loading, with no window |
-| `$C set-claude 5h=86 week=24 Fable=9` | What `/usage` shows on the next read. Add `note=rate-limited` for the model-caps-unavailable notice. Also `not-logged-in`, `hang`, `old-cli` (rejects flags) |
+| `$C set-claude 5h=86 week=24 Fable=9` | What `/usage` shows on the next read. Add `note=rate-limited` for the model-caps-unavailable notice. Also `not-logged-in`, `hang`, `old-cli` (rejects flags), `enter-lost` (first Enter does nothing) |
 | `$C set-codex free=7`, `$C set-codex plus=18,41` | One 30-day window, or 5-hour and weekly. Also `not-logged-in`, `hang` |
 | `$C send press <label>` | Presses a button, menu item, popup, or chip by its visible label |
 | `$C send toggle <text>` | Presses the switch next to that text |

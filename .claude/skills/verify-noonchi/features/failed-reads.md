@@ -19,6 +19,7 @@ Preconditions: `$C start` has returned.
 
 - **Stale.** Run `$C set-codex not-logged-in`, `$C refresh`, `$C open-panel`, `$C shot stale`. Under Codex the tree has `As of`, `30-day, 7% used`, and `Not logged in · will retry`. Claude is unchanged.
 - **Hang.** Run `$C set-claude hang`, `$C refresh` (about 15 seconds), `$C open-panel`. Claude shows `As of` with old values.
+- **Enter lost.** Run `$C set-claude enter-lost`, `$C refresh`, `$C state`. Claude still has a good reading, with no error, about 3 seconds slower. Regression test for issue #1.
 - **Recover.** Run `$C set-claude 5h=10 week=11`, `$C set-codex free=7`, `$C refresh`, `$C open-panel`. The tree has `Max`, `Free`, new values, and no `As of`.
 - **First failure.** Run `$C stop`, then `$C start`. Run `$C set-claude not-logged-in`, `$C set-codex not-logged-in`, `$C refresh`, `$C open-panel`. Values stay because `start` already read once, so this is stale too. A true first failure needs the fake set before launch, which the helper doesn't do yet: report `fail-first` as not covered.
 

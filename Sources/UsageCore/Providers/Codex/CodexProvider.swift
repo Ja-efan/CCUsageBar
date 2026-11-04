@@ -54,14 +54,15 @@ public struct CodexProvider: UsageProvider {
             _ = try rpc.request("initialize", params: ["clientInfo": ["name": "noonchi", "version": version]],
                                 timeout: deadline.timeIntervalSinceNow)
             try rpc.notify("initialized")
-            // Reset-credit details aren't shown; skip that extra lookup.
-            let result = try rpc.request("account/rateLimits/read", params: ["excludeResetCreditDetails": true],
-                                         timeout: deadline.timeIntervalSinceNow)
+            // No params: 0.147 rejects any ("invalid type: map, expected unit"), and later
+            // versions accept none.
+            let result = try rpc.request("account/rateLimits/read", timeout: deadline.timeIntervalSinceNow)
             return Self.usage(from: result)
         } catch let error as JSONRPCError {
-            return .failure(ProviderFailure(ProviderError(error)))
+            // Keep the server's words for the raw output window; a bug report needs them.
+            return .failure(ProviderFailure(ProviderError(error), raw: String(describing: error)))
         } catch {
-            return .failure(ProviderFailure(.failed(String(describing: error))))
+            return .failure(ProviderFailure(.failed(String(describing: error)), raw: String(describing: error)))
         }
     }
 
