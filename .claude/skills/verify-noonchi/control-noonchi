@@ -1,0 +1,309 @@
+#!/bin/bash
+# Drives a disposable Noonchi for verification. See SKILL.md.
+# Own bundle ID, own home folder, fake CLIs: the user's settings, history, and accounts stay out of it.
+set -euo pipefail
+
+REPO="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+SCRATCH_ROOT="${TMPDIR:-/tmp}noonchi-verify"
+APP="$REPO/.build/verify-app/NoonchiVerify.app"
+CURRENT="$SCRATCH_ROOT/current"
+BUNDLE_ID="io.github.ja-efan.noonchi.verify"
+
+die() { echo "error: $*" >&2; exit 1; }
+run_dir() { [ -L "$CURRENT" ] && readlink "$CURRENT" || die "no run; use: control-noonchi start"; }
+evidence() { echo "$REPO/.verify-artifacts/$(basename "$(run_dir)")"; }
+
+send() { # send <command...>: prints the driver's JSON reply
+  local run; run="$(run_dir)"; local ctl="$run/ctl"
+  rm -f "$ctl/reply"
+  printf '%s\n' "$*" > "$ctl/cmd.tmp"; mv "$ctl/cmd.tmp" "$ctl/cmd"
+  for _ in $(seq 1 100); do
+    if [ -f "$ctl/reply" ]; then cat "$ctl/reply"; echo; rm -f "$ctl/reply"; return 0; fi
+    sleep 0.1
+  done
+  die "driver didn't answer: $*"
+}
+ok_reply() { [[ "$(send "$@")" == *'"ok" : true'* ]]; }
+field() { python3 -c "import json,sys; print(json.load(sys.stdin)$1)"; }
+
+cmd_build() {
+  swift build -c release --arch arm64 --package-path "$REPO" --scratch-path "$REPO/.build/verify" -Xswiftc -DNOONCHI_VERIFY
+  local bin; bin="$(swift build -c release --arch arm64 --package-path "$REPO" --scratch-path "$REPO/.build/verify" --show-bin-path)/Noonchi"
+  rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS"
+  cp "$bin" "$APP/Contents/MacOS/Noonchi"
+  sed -e "s/__VERSION__/$(cat "$REPO/VERSION")/" -e "s/__BUILD__/$(git -C "$REPO" rev-parse --short HEAD)/" \
+      -e "s/io.github.ja-efan.noonchi/$BUNDLE_ID/" "$REPO/Resources/Info.plist" > "$APP/Contents/Info.plist"
+  codesign --force --sign - "$APP" 2>/dev/null
+  echo "built $APP"
+}
+
+write_fakes() { # fake CLIs read their answers from state files, so refreshes can change them
+  local run="$1"
+  cat > "$run/bin/claude" <<FAKE
+#!/bin/bash
+echo "Opus 5.5 · \$(cat "$run/state/claude.plan")"
+if [ "\$(cat "$run/state/claude.mode")" = hang ]; then sleep 40; exit 0; fi
+printf '❯ '
+read -r -t 20 _ || exit 0
+cat "$run/state/claude.txt"
+read -r -t 20 _ || true
+FAKE
+  cat > "$run/bin/codex" <<FAKE
+#!/bin/bash
+while read -r -t 25 line; do
+  id=\$(printf '%s' "\$line" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
+  case "\$line" in
+    *'"initialized"'*) ;;
+    *'"initialize"'*) echo "{\"id\":\$id,\"result\":{}}" ;;
+    *rateLimits*)
+      mode=\$(cat "$run/state/codex.mode")
+      if [ "\$mode" = hang ]; then sleep 40; exit 0; fi
+      if [ "\$mode" = not-logged-in ]; then
+        echo "{\"id\":\$id,\"error\":{\"code\":-32600,\"message\":\"codex account authentication required to read rate limits\"}}"
+      else
+        echo "{\"id\":\$id,\"result\":\$(cat "$run/state/codex.json")}"
+      fi ;;
+  esac
+done
+FAKE
+  chmod +x "$run/bin/claude" "$run/bin/codex"
+}
+
+# set-claude 5h=86 week=24 fable=9 | set-claude not-logged-in | set-claude hang
+cmd_set_claude() {
+  local run; run="$(run_dir)"; local state="$run/state"
+  case "${1:-}" in
+    hang) echo hang > "$state/claude.mode"; return ;;
+    not-logged-in) echo ok > "$state/claude.mode"; echo "Not logged in · Please run /login" > "$state/claude.txt"; return ;;
+  esac
+  echo ok > "$state/claude.mode"; : > "$state/claude.txt"
+  for pair in "$@"; do
+    local key="${pair%%=*}" value="${pair##*=}"
+    case "$key" in
+      5h)   printf 'Current session\n██ %s%% used\nResets 3pm (Asia/Seoul)\n' "$value" >> "$state/claude.txt" ;;
+      week) printf 'Current week (all models)\n██ %s%% used\nResets Nov 8 at 9am (Asia/Seoul)\n' "$value" >> "$state/claude.txt" ;;
+      *)    printf 'Current week (%s)\n██ %s%% used\nResets Nov 8 at 9am (Asia/Seoul)\n' "$key" "$value" >> "$state/claude.txt" ;;
+    esac
+  done
+}
+
+# set-codex free=7 | set-codex plus=18,41 | set-codex not-logged-in | set-codex hang
+cmd_set_codex() {
+  local run; run="$(run_dir)"; local state="$run/state"
+  case "${1:-}" in hang|not-logged-in) echo "$1" > "$state/codex.mode"; return ;; esac
+  echo ok > "$state/codex.mode"
+  python3 - "$1" > "$state/codex.json" <<'PY'
+import json, sys, time
+plan, values = sys.argv[1].split("=")
+values = [float(v) for v in values.split(",")]
+now = int(time.time())
+def window(used, minutes): return {"usedPercent": used, "windowDurationMins": minutes, "resetsAt": now + minutes * 30}
+limits = {"planType": plan}
+if len(values) == 1:
+    limits["primary"] = window(values[0], 43200)
+else:
+    limits["primary"], limits["secondary"] = window(values[0], 300), window(values[1], 10080)
+print(json.dumps({"accountId": "fake-account-id", "rateLimits": limits}))
+PY
+}
+
+# start [key=value ...]: optional settings written before launch, e.g. language=ko menuBar.mode=custom
+cmd_start() {
+  [ -x "$APP/Contents/MacOS/Noonchi" ] || die "not built; use: control-noonchi build"
+  if [ -L "$CURRENT" ] && [ -f "$(readlink "$CURRENT")/pid" ] && kill -0 "$(cat "$(readlink "$CURRENT")/pid")" 2>/dev/null; then
+    die "a run is active; use: control-noonchi stop"
+  fi
+  local run="$SCRATCH_ROOT/$(date +%Y%m%d-%H%M%S)-$$"
+  mkdir -p "$run/ctl" "$run/bin" "$run/state" "$run/home"
+  ln -sfn "$run" "$CURRENT"
+  mkdir -p "$REPO/.verify-artifacts/$(basename "$run")"
+  write_fakes "$run"
+  echo "Claude Max" > "$run/state/claude.plan"
+  cmd_set_claude 5h=5 week=26 Fable=2
+  cmd_set_codex free=7
+  # UserDefaults go through cfprefsd to the real home, under this build's own bundle ID,
+  # so they don't follow CFFIXED_USER_HOME. Start each run from a clean domain.
+  defaults delete "$BUNDLE_ID" >/dev/null 2>&1 || true
+  defaults write "$BUNDLE_ID" language -string en
+  # A clean domain would otherwise pull the user's settings from the old CCUsageBar one.
+  defaults write "$BUNDLE_ID" settingsMigrated -bool true
+  defaults write "$BUNDLE_ID" settingsVersion -int 2
+  # Right of the user's own item, so a menu bar manager doesn't hide it.
+  defaults write "$BUNDLE_ID" "NSStatusItem Preferred Position Item-0" -int 420
+  for pair in "$@"; do
+    local key="${pair%%=*}" value="${pair#*=}"
+    case "$value" in
+      true|false) defaults write "$BUNDLE_ID" "$key" -bool "$value" ;;
+      *) defaults write "$BUNDLE_ID" "$key" -string "$value" ;;
+    esac
+  done
+  stat -f %m "$HOME/Library/Preferences/io.github.ja-efan.noonchi.plist" > "$run/real-settings-mtime" 2>/dev/null || true
+  env CFFIXED_USER_HOME="$run/home" HOME="$run/home" NOONCHI_VERIFY_DIR="$run/ctl" \
+      NOONCHI_CLAUDE_PATH="$run/bin/claude" NOONCHI_CODEX_PATH="$run/bin/codex" \
+      "$APP/Contents/MacOS/Noonchi" > "$run/app.log" 2>&1 &
+  echo $! > "$run/pid"
+  # Ready means usable: every service has answered and nothing is loading.
+  for _ in $(seq 1 40); do
+    sleep 0.25
+    send ping >/dev/null 2>&1 && break
+  done
+  cmd_wait_idle
+  echo "ready: run $(basename "$run"), pid $(cat "$run/pid")"
+}
+
+panel_open() { [ "$(send windows | python3 -c "import json,sys; print(sum(w['level']==101 for w in json.load(sys.stdin)['windows']))")" != 0 ]; }
+
+# Opening doesn't activate the app, so the user keeps typing where they were. The panel
+# closes when they click elsewhere; give up rather than fight them for it.
+cmd_open_panel() {
+  for _ in 1 2; do
+    if panel_open; then
+      sleep 0.4  # one that's closing still counts as open for a moment
+      panel_open && break
+    fi
+    send click-status >/dev/null; sleep 0.7
+  done
+  if ! panel_open; then
+    echo "panel won't stay open: the user is probably clicking around. Retry later." >&2
+    exit 3
+  fi
+  # A menu bar manager can still hide the item despite the position set at start.
+  if [ "$(send windows | field "['status']['x']" | cut -d. -f1)" -lt 0 ]; then send reveal >/dev/null; sleep 0.2; fi
+}
+cmd_close_panel() { if panel_open; then send click-status >/dev/null; sleep 0.3; fi; }
+
+# refresh: reads every service again without opening anything
+cmd_refresh() {
+  send refresh >/dev/null
+  sleep 0.2
+  cmd_wait_idle
+}
+
+# press-refresh: the panel's Refresh button, the path a user takes
+cmd_press_refresh() {
+  cmd_open_panel
+  ok_reply "press Refresh" || die "no Refresh button (already refreshing?)"
+  sleep 0.3
+  cmd_wait_idle
+}
+
+# open-settings [General|Services]: through the panel's ⋯ menu, as a user does
+cmd_open_settings() {
+  cmd_open_panel
+  send press More >/dev/null; sleep 0.4
+  ok_reply "press Settings…" || die "no Settings… item in the ⋯ menu"
+  sleep 0.8
+  cmd_close_panel
+  if [ -n "${1:-}" ]; then ok_reply "tab $1" || die "no tab $1"; sleep 0.5; fi
+  send yield >/dev/null
+}
+cmd_close_settings() { send "close-window $(send windows | python3 -c "import json,sys; print(next((w['title'] for w in json.load(sys.stdin)['windows'] if w['level']==0), ''))")" >/dev/null; sleep 0.3; }
+
+# settings: what the app saved, read back from its own domain
+cmd_settings() {
+  defaults export "$BUNDLE_ID" - | python3 -c "
+import plistlib, sys
+d = plistlib.loads(sys.stdin.buffer.read())
+for k in sorted(d):
+    if k not in ('knownWindows', 'settingsMigrated', 'settingsVersion') and not k.startswith('NSStatusItem'): print(k, '=', d[k])"
+}
+
+cmd_wait_idle() { # asks the app directly, so no window has to open
+  for _ in $(seq 1 180); do
+    [ "$(send state | field "['loading']")" = False ] && return 0
+    sleep 0.25
+  done
+  die "still loading after 45 seconds"
+}
+
+cmd_doctor() {
+  local run; run="$(run_dir)"; local pid; pid="$(cat "$run/pid")"
+  kill -0 "$pid" 2>/dev/null || die "app pid $pid isn't running"
+  local reply; reply="$(send ping)"
+  local bundle home version
+  bundle="$(field "['bundle']" <<<"$reply")"; home="$(field "['home']" <<<"$reply")"; version="$(field "['version']" <<<"$reply")"
+  [ "$bundle" = "$BUNDLE_ID" ] || die "wrong bundle: $bundle"
+  [ "$home" = "$run/home" ] || [ "/private$home" = "$run/home" ] || [ "$home" = "/private$run/home" ] || die "app isn't isolated, home is $home"
+  ps -p "$pid" -o command= | grep -q "$APP" || die "pid $pid isn't the verification app"
+  local changed=no
+  if [ -f "$run/real-settings-mtime" ] && [ "$(stat -f %m "$HOME/Library/Preferences/io.github.ja-efan.noonchi.plist")" != "$(cat "$run/real-settings-mtime")" ]; then changed=yes; fi
+  echo "ok: pid=$pid version=$version build=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$APP/Contents/Info.plist") head=$(git -C "$REPO" rev-parse --short HEAD) home=$home"
+  echo "real settings file changed since start: $changed (the user's own app can change it; this run can't)"
+}
+
+# shot <name>: every visible window of the app, plus the menu bar image. No other screen content.
+cmd_shot() {
+  local name="$1" out; out="$(evidence)"
+  send "status-image $out/$name-menubar.png" > "$out/$name-menubar.json"
+  send windows > "$out/$name-windows.json"
+  send tree > "$out/$name-tree.json"
+  local i=0
+  for number in $(field "['windows']" < "$out/$name-windows.json" | python3 -c "import ast,sys; [print(w['number']) for w in ast.literal_eval(sys.stdin.read())]"); do
+    screencapture -x -o -l"$number" "$out/$name-window$i.png" || echo "window $number is off screen; run: control-noonchi send reveal" >&2
+    i=$((i + 1))
+  done
+  echo "$out/$name-*"
+}
+
+# region <name>: the menu bar and the panel together, as a user sees them. Holds nearby menu bar icons, so it stays local.
+cmd_region() {
+  local name="$1" out; out="$(evidence)"
+  send windows > "$out/$name-windows.json"
+  python3 - "$out/$name-windows.json" "$out/$name-region.png" <<'PY'
+import json, subprocess, sys
+info = json.load(open(sys.argv[1]))
+x = int(info["status"]["x"]); height = 60
+for w in info["windows"]:
+    height = max(height, int(info["status"]["top"] - w["frame"]["y"]) + 12)
+subprocess.run(["screencapture", "-x", f"-R{x - 10},0,340,{height}", sys.argv[2]], check=True)
+print(sys.argv[2])
+PY
+}
+
+# gap: distance between the status item and the panel, and whether the window fits its content
+cmd_gap() {
+  send windows | python3 -c "
+import json, sys
+info = json.load(sys.stdin)
+panels = [w for w in info['windows'] if w['level'] == 101]
+if not panels: sys.exit('panel is not open')
+panel = panels[0]
+print('window height', panel['frame']['h'], 'gap below menu item', info['status']['y'] - panel['frame']['top'])"
+}
+
+cmd_stop() {
+  local run; run="$(run_dir)"
+  if [ -f "$run/pid" ]; then kill "$(cat "$run/pid")" 2>/dev/null || true; fi
+  sleep 0.5
+  # Fakes this run started; matched by this run's own folder, never by name.
+  pkill -f "$run/bin/" 2>/dev/null || true
+  local evidence_dir; evidence_dir="$(evidence)"
+  rm -f "$CURRENT"; rm -rf "$run"
+  defaults delete "$BUNDLE_ID" >/dev/null 2>&1 || true
+  echo "stopped; evidence kept in $evidence_dir"
+}
+
+command="${1:-}"; [ $# -gt 0 ] && shift
+case "$command" in
+  build) cmd_build ;;
+  start) cmd_start "$@" ;;
+  doctor) cmd_doctor ;;
+  send) send "$@" ;;
+  wait-idle) cmd_wait_idle ;;
+  open-panel) cmd_open_panel ;;
+  close-panel) cmd_close_panel ;;
+  open-settings) cmd_open_settings "$@" ;;
+  refresh) cmd_refresh ;;
+  press-refresh) cmd_press_refresh ;;
+  close-settings) cmd_close_settings ;;
+  state) send state ;;
+  settings) cmd_settings ;;
+  set-claude) cmd_set_claude "$@" ;;
+  set-codex) cmd_set_codex "$@" ;;
+  shot) cmd_shot "$@" ;;
+  region) cmd_region "$@" ;;
+  gap) cmd_gap ;;
+  stop) cmd_stop ;;
+  evidence) evidence ;;
+  *) echo "usage: control-noonchi build|start [key=value...]|doctor|send <cmd>|open-panel|close-panel|open-settings [tab]|close-settings|refresh|press-refresh|state|settings|wait-idle|set-claude ...|set-codex ...|shot <name>|region <name>|gap|evidence|stop" >&2; exit 2 ;;
+esac

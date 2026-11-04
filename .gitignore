@@ -8,3 +8,6 @@ DerivedData/
 
 # Design notes stay local
 docs/design/
+
+# Evidence from the verify-noonchi skill
+.verify-artifacts/

@@ -15,6 +15,9 @@ final class UsageStore: ObservableObject {
     private var generation: [ProviderID: Int] = [:]
 
     init() {
+#if NOONCHI_VERIFY
+        VerifyDriver.start(store: self)
+#endif
         refresh()
         // Each service polls on its own interval and never waits for another.
         for provider in Providers.all {
