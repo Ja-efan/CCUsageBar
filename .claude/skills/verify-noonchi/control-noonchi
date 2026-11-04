@@ -313,10 +313,11 @@ case "$command" in
   settings) cmd_settings ;;
   set-claude) cmd_set_claude "$@" ;;
   set-codex) cmd_set_codex "$@" ;;
+  set-plan) echo "$*" > "$(run_dir)/state/claude.plan" ;;
   shot) cmd_shot "$@" ;;
   region) cmd_region "$@" ;;
   gap) cmd_gap ;;
   stop) cmd_stop ;;
   evidence) evidence ;;
-  *) echo "usage: control-noonchi build|start [key=value...]|doctor|send <cmd>|open-panel|close-panel|open-settings [tab]|close-settings|refresh|press-refresh|state|settings|wait-idle|set-claude ...|set-codex ...|shot <name>|region <name>|gap|evidence|stop" >&2; exit 2 ;;
+  *) echo "usage: control-noonchi build|start [key=value...]|doctor|send <cmd>|open-panel|close-panel|open-settings [tab]|close-settings|refresh|press-refresh|state|settings|wait-idle|set-claude ...|set-codex ...|set-plan <text>|shot <name>|region <name>|gap|evidence|stop" >&2; exit 2 ;;
 esac

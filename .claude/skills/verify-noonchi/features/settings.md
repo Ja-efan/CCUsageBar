@@ -21,7 +21,8 @@ Preconditions: `$C start` has returned.
 - **Open.** Run `$C open-settings`, then `$C shot settings`. `settings-window0.png` shows the General tab.
 - **Change.** Run `$C send toggle "Highlight high usage"`, `$C send press System`, `$C send press Blue`. `$C settings` shows `highlightHigh = False` and `barColor = #3B82F6`.
 - **Effect.** Run `$C set-claude 5h=86 week=24`, `$C refresh`, `$C open-panel`, `$C shot blue`. The bar is blue, and 86% isn't orange.
-- **Refresh interval.** Run `$C send press "every 5 min"`, then `$C send press "every 2 min"`. `$C settings` shows `refreshMinutes = 2`, and the Services tab shows `every 2 min`. Run `$C set-claude 5h=33 week=33`, wait 2 minutes 15 seconds, and run `$C state`. The value is 33 with nothing pressed.
+- **Refresh interval.** Run `$C send type 2`. `$C settings` shows `refreshMinutes = 2`, and the Services tab shows `every 2 min`. Run `$C set-claude 5h=33 week=33`, wait 2 minutes 15 seconds, and run `$C state`. The value is 33 with nothing pressed.
+- **Bounds.** Run `$C send type 500`, then `$C settings`: `refreshMinutes = 120`. Run `$C send type 0`: 1. Run `$C send type abc`: unchanged. Run `$C send step up`: one more.
 - **Screen off.** Run `$C send screen off`, `$C set-claude 5h=44 week=44`, `$C send tick`, `$C wait-idle`, `$C state`. The value hasn't changed. Run `$C send screen on`, `$C wait-idle`, `$C state`. It reads 44.
 - **Language.** Run `$C stop`, `$C start language=ko`, `$C open-panel`. The tree has `5시간, 5% 사용`.
 

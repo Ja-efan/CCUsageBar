@@ -1,19 +1,21 @@
 import Foundation
 
-/// How often the app reads each service. A closed set: anything shorter makes Claude Code
-/// hide the model caps (rate limited in 5 of 30 reads at 2 minutes), so don't go below it.
-public enum RefreshInterval: Int, CaseIterable, Identifiable, Sendable {
-    case two = 2, five = 5, ten = 10, fifteen = 15, thirty = 30
+/// How often the app reads each service, in whole minutes.
+public struct RefreshInterval: Equatable, Sendable {
+    public static let range = 1...120
+    public static let standard = RefreshInterval(minutes: 5)
 
-    public static let standard = RefreshInterval.five
+    public let minutes: Int
+    public var seconds: TimeInterval { TimeInterval(minutes * 60) }
 
-    public var id: Int { rawValue }
-    public var minutes: Int { rawValue }
-    public var seconds: TimeInterval { TimeInterval(rawValue * 60) }
+    /// Anything typed outside the range lands on its nearest end.
+    public init(minutes: Int) {
+        self.minutes = min(max(minutes, Self.range.lowerBound), Self.range.upperBound)
+    }
 
-    /// Missing or unknown saved value means the default.
+    /// A missing saved value means the default.
     public init(saved: Int?) {
-        self = saved.flatMap(RefreshInterval.init(rawValue:)) ?? .standard
+        self = saved.map(RefreshInterval.init(minutes:)) ?? .standard
     }
 }
 

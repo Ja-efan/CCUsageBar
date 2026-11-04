@@ -47,8 +47,16 @@ public enum MenuBarFormatter {
                 windowIDs = state.usage.flatMap(autoWindow).map { [$0.id] } ?? []
             case .custom:
                 let prefix = id.rawValue + ":"
-                windowIDs = selected.filter { $0.hasPrefix(prefix) }.map { String($0.dropFirst(prefix.count)) }
-                if windowIDs.isEmpty { return nil }
+                let picked = selected.filter { $0.hasPrefix(prefix) }.map { String($0.dropFirst(prefix.count)) }
+                if picked.isEmpty { return nil }
+                // None of the picks exist any more (Ultra has no 5-hour limit): show something
+                // real rather than a lone dash.
+                if let usage = state.usage, !picked.contains(where: { usage.window(id: $0) != nil }),
+                   let window = autoWindow(usage) {
+                    windowIDs = [window.id]
+                } else {
+                    windowIDs = picked
+                }
             }
             guard let usage = state.usage else {
                 return MenuBarItem(providerID: id, text: state.error == nil ? "…" : "⚠︎", ringPercent: nil, highlight: .none)

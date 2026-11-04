@@ -127,6 +127,26 @@ enum VerifyDriver {
                 }
             }
             return ["ok": false, "error": "no segment \(argument)"]
+        case "type":
+            // Types into the first text field in Settings and ends editing, like pressing Return.
+            for window in panels {
+                guard let root = window.contentView,
+                      let field = views(root, of: NSTextField.self).first(where: { $0.isEditable }) else { continue }
+                window.makeFirstResponder(field)
+                field.currentEditor()?.selectAll(nil)
+                field.currentEditor()?.insertText(argument)
+                window.makeFirstResponder(nil)
+                return ["ok": true, "shown": field.stringValue]
+            }
+            return ["ok": false, "error": "no text field"]
+        case "step":
+            for window in panels {
+                guard let root = window.contentView, let stepper = views(root, of: NSStepper.self).first else { continue }
+                stepper.doubleValue += argument == "down" ? -stepper.increment : stepper.increment
+                stepper.sendAction(stepper.action, to: stepper.target)
+                return ["ok": true, "value": stepper.doubleValue]
+            }
+            return ["ok": false, "error": "no stepper"]
         case "reveal":
             // A menu bar manager can push new items off screen. Move the item (the panel
             // anchors to it) to a visible spot so captures show what a user would see.

@@ -64,6 +64,9 @@ It fails unless the driver answers, the bundle ID is the verification one, and t
 | `$C send toggle <text>` | Presses the switch next to that text |
 | `$C send segment <label>` | Picks a segment, e.g. `Custom` |
 | `$C send tab <label>` | Switches the Settings tab |
+| `$C send type <text>` | Types into the Settings text field and ends editing |
+| `$C send step up`, `$C send step down` | Presses the Settings stepper |
+| `$C set-plan "Claude Ultra"` | The plan name on the next read |
 | `$C send tree` | JSON of every element's role and label in the open windows |
 | `$C send windows` | JSON of window frames and the status item's frame |
 | `$C settings` | What the app saved |

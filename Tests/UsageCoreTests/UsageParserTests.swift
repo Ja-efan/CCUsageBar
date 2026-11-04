@@ -80,7 +80,9 @@ final class PlanTests: XCTestCase {
     func testPlanWithAndWithoutSpaces() {
         XCTAssertEqual(UsageParser.plan(in: "▝▜██████▀  Opus 5.5 · Claude Max"), "Max")
         XCTAssertEqual(UsageParser.plan(in: "▝▜██████▀Opus5.5·ClaudePro"), "Pro")
+        XCTAssertEqual(UsageParser.plan(in: "Opus 5.5 · Claude Ultra"), "Ultra")
         XCTAssertNil(UsageParser.plan(in: "Claude Code v2.1.310"))
+        XCTAssertNil(UsageParser.plan(in: "x · Claude Code"))
     }
 }
 

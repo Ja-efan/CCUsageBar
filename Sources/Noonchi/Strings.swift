@@ -86,7 +86,8 @@ struct Strings {
     var notInstalled: String { t("설치되지 않음", "Not installed") }
     var menuBarItems: String { t("상단 바 항목", "Menu bar items") }
     var afterFirstRefresh: String { t("첫 조회 뒤에 나타나요", "Appear after the first refresh") }
-    var refreshEvery: String { t("새로고침 주기", "Refresh") }
+    var refreshEvery: String { t("새로고침 주기", "Refresh every") }
+    var minutesUnit: String { t("분", "min") }
     var refreshHint: String { t("길수록 CPU를 덜 쓰지만 한도 경고가 늦어질 수 있어요. 화면이 꺼져 있으면 조회하지 않아요.", "Longer uses less CPU, but limit warnings can come later. Skipped while the screen is off.") }
     func every(_ interval: RefreshInterval) -> String {
         t("\(interval.minutes)분마다", "every \(interval.minutes) min")

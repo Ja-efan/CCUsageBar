@@ -33,8 +33,19 @@ final class MenuBarFormatterTests: XCTestCase {
         XCTAssertEqual(texts(.custom, ["claude:model:Fable", "codex:30d"]), ["2%", "7%"])
     }
 
+    /// Ultra has no 5-hour limit, so a menu bar set to only that would be a lone dash.
+    func testWhenNoPickedWindowExistsShowsARealOne() {
+        let ultra = state([UsageWindow(id: "week", kind: .rolling(minutes: 10080), usedPercent: 40),
+                           UsageWindow(id: "model:Fable", kind: .model(name: "Fable", minutes: 10080), usedPercent: 5)])
+        let items = MenuBarFormatter.items(for: [(claude, ultra)], mode: .custom, selected: ["claude:5h"],
+                                           labeled: true, highlightHigh: true)
+        XCTAssertEqual(items.map(\.text), ["7d 40%"])
+        XCTAssertEqual(MenuBarFormatter.items(for: [(claude, ultra)], mode: .auto, selected: [],
+                                              labeled: true, highlightHigh: true).map(\.text), ["7d 40%"])
+    }
+
     func testMissingSelectedWindowShowsDash() {
-        XCTAssertEqual(texts(.custom, ["claude:model:Sonnet"], labeled: true), ["Sonnet –"])
+        XCTAssertEqual(texts(.custom, ["claude:model:Sonnet", "claude:5h"], labeled: true), ["Sonnet – · 5h 19%"])
     }
 
     func testLoadingAndFailedServices() {
@@ -160,10 +171,15 @@ final class PaceEstimatorTests: XCTestCase {
 
 final class RefreshIntervalTests: XCTestCase {
     func testSavedValues() {
-        XCTAssertEqual(RefreshInterval(saved: nil), .five)
-        XCTAssertEqual(RefreshInterval(saved: 10), .ten)
-        XCTAssertEqual(RefreshInterval(saved: 1), .five)
-        XCTAssertEqual(RefreshInterval.thirty.seconds, 1800)
+        XCTAssertEqual(RefreshInterval(saved: nil).minutes, 5)
+        XCTAssertEqual(RefreshInterval(saved: 7).minutes, 7)
+        XCTAssertEqual(RefreshInterval(minutes: 30).seconds, 1800)
+    }
+
+    func testTypedValuesLandInRange() {
+        XCTAssertEqual(RefreshInterval(minutes: 0).minutes, 1)
+        XCTAssertEqual(RefreshInterval(minutes: -3).minutes, 1)
+        XCTAssertEqual(RefreshInterval(minutes: 500).minutes, 120)
     }
 }
 

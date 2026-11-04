@@ -55,7 +55,7 @@ final class AppSettings: ObservableObject {
     /// Nil means the system color.
     @Published var barColorHex: String? { didSet { defaults.set(barColorHex ?? "system", forKey: Key.barColor) } }
     @Published var disabledProviders: Set<String> { didSet { defaults.set(Array(disabledProviders), forKey: Key.disabled) } }
-    @Published var refreshInterval: RefreshInterval { didSet { defaults.set(refreshInterval.rawValue, forKey: Key.refreshMinutes) } }
+    @Published var refreshInterval: RefreshInterval { didSet { defaults.set(refreshInterval.minutes, forKey: Key.refreshMinutes) } }
     /// Window IDs seen per service and when, so they can be picked before the next refresh.
     @Published private(set) var knownWindows: [String: [String: Date]] {
         didSet { defaults.set(knownWindows, forKey: Key.knownWindows) }

@@ -42,7 +42,7 @@ Open them from `⋯` › Settings at the bottom of the panel. Changes are saved 
 | | Icon | Symbol / Letter / Ring (fills with usage) |
 | | Highlight high usage | Orange at 80%, red at 95% (on by default) |
 | | Bar color | System / 7 presets |
-| | Refresh | Every 2 / 5 / 10 / 15 / 30 minutes (default 5). Longer uses less CPU, but limit warnings can come later |
+| | Refresh every | 1 to 120 minutes (default 5). Longer uses less CPU, but limit warnings can come later |
 | | Language | 한국어 / English (defaults to the system language) |
 | | Open at login | Registers Noonchi as a macOS login item |
 | Services | Each service | Detection status and path, on/off, menu bar items in Custom mode |

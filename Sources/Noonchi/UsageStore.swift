@@ -26,7 +26,7 @@ final class UsageStore: ObservableObject {
         VerifyDriver.start(store: self)
 #endif
         refresh()
-        intervalChange = AppSettings.shared.$refreshInterval.sink { [weak self] in self?.startTimer($0) }
+        intervalChange = AppSettings.shared.$refreshInterval.removeDuplicates().sink { [weak self] in self?.startTimer($0) }
         // Timers don't fire during sleep; values would be stale for up to one interval.
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main

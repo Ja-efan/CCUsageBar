@@ -47,6 +47,11 @@ private struct GeneralSettings: View {
 
     private var s: Strings { settings.strings }
 
+    private var minutes: Binding<Int> {
+        Binding(get: { settings.refreshInterval.minutes },
+                set: { settings.refreshInterval = RefreshInterval(minutes: $0) })
+    }
+
     var body: some View {
         Form {
             Section(s.menuBar) {
@@ -70,8 +75,17 @@ private struct GeneralSettings: View {
             }
 
             Section {
-                Picker(selection: $settings.refreshInterval) {
-                    ForEach(RefreshInterval.allCases) { Text(s.every($0)).tag($0) }
+                LabeledContent {
+                    HStack(spacing: 6) {
+                        TextField("", value: minutes, format: .number.grouping(.never))
+                            .labelsHidden()
+                            .textFieldStyle(.roundedBorder)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 48)
+                        Text(s.minutesUnit)
+                        Stepper("", value: minutes, in: RefreshInterval.range)
+                            .labelsHidden()
+                    }
                 } label: {
                     Text(s.refreshEvery)
                     Text(s.refreshHint)

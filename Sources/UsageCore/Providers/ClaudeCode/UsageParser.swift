@@ -51,8 +51,12 @@ public enum UsageParser {
     /// Plan from the banner line, e.g. "Opus 5.5 · Claude Max" → "Max". In the stream
     /// fallback the spaces are cursor moves and disappear ("·ClaudeMax").
     static func plan(in text: String) -> String? {
-        guard let r = text.range(of: #"·\s*Claude\s*(Max|Pro|Team|Enterprise)\b"#, options: .regularExpression) else { return nil }
-        return ["Max", "Pro", "Team", "Enterprise"].first { text[r].hasSuffix($0) }
+        // Any plan name, so a new plan (Ultra replaced Max 20x) doesn't need a code change.
+        guard let re = try? NSRegularExpression(pattern: #"·\s*Claude\s*([A-Z][a-z]+)\b"#),
+              let m = re.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let r = Range(m.range(at: 1), in: text), text[r] != "Code"
+        else { return nil }
+        return String(text[r])
     }
 
     /// Cuts the "What's contributing to your limits usage?" section. Claude Code builds
