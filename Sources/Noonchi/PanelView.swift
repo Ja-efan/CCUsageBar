@@ -225,6 +225,7 @@ struct PanelView: View {
                     Button(s.settingsMenu) { SettingsWindow.show(store: store, settings: settings) }
                         .keyboardShortcut(",")
                     Button(s.showRawOutput) { RawOutputWindow.show(store: store, settings: settings) }
+                    Button(s.updateMenu) { UpdateWindow.show(settings: settings) }
                     Divider()
                     Button(s.quit) { NSApp.terminate(nil) }
                         .keyboardShortcut("q")

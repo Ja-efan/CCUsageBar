@@ -20,7 +20,7 @@ run_dir() {
   esac
 }
 # True only if the pid is alive and really is this build, not a reused pid.
-is_our_app() { kill -0 "$1" 2>/dev/null && ps -p "$1" -o command= | grep -qF "$APP"; }
+is_our_app() { kill -0 "$1" 2>/dev/null && ps -p "$1" -o command= | grep -qF "/Applications/NoonchiVerify.app"; }
 evidence() { echo "$REPO/.verify-artifacts/$(basename "$(run_dir)")"; }
 
 send() { # send <command...>: prints the driver's JSON reply
@@ -134,7 +134,13 @@ cmd_start() {
     die "a run is active; use: control-noonchi stop"
   fi
   local run="$SCRATCH_ROOT/$(date +%Y%m%d-%H%M%S)-$$"
-  mkdir -p "$run/ctl" "$run/bin" "$run/state" "$run/home"
+  mkdir -p "$run/ctl" "$run/bin" "$run/state" "$run/home" "$run/Applications" "$run/feed"
+  # A copy per run, so an update can replace it without touching the build.
+  cp -R "$APP" "$run/Applications/"
+  echo '{}' > "$run/feed/latest.json"
+  local port; port="$(python3 -c "import socket; s=socket.socket(); s.bind(('127.0.0.1',0)); print(s.getsockname()[1])")"
+  echo "$port" > "$run/feed-port"
+  (python3 -m http.server "$port" --bind 127.0.0.1 --directory "$run/feed" >/dev/null 2>&1 & echo $! > "$run/feed-pid")
   ln -sfn "$run" "$CURRENT"
   mkdir -p "$REPO/.verify-artifacts/$(basename "$run")"
   write_fakes "$run"
@@ -160,7 +166,8 @@ cmd_start() {
   stat -f %m "$HOME/Library/Preferences/io.github.ja-efan.noonchi.plist" > "$run/real-settings-mtime" 2>/dev/null || true
   env CFFIXED_USER_HOME="$run/home" HOME="$run/home" NOONCHI_VERIFY_DIR="$run/ctl" \
       NOONCHI_CLAUDE_PATH="$run/bin/claude" NOONCHI_CODEX_PATH="$run/bin/codex" \
-      "$APP/Contents/MacOS/Noonchi" > "$run/app.log" 2>&1 &
+      NOONCHI_UPDATE_FEED="http://127.0.0.1:$port/latest.json" \
+      "$run/Applications/NoonchiVerify.app/Contents/MacOS/Noonchi" > "$run/app.log" 2>&1 &
   echo $! > "$run/pid"
   # Ready means usable: every service has answered and nothing is loading.
   for _ in $(seq 1 40); do
@@ -237,6 +244,52 @@ cmd_wait_idle() { # asks the app directly, so no window has to open
   die "still loading after 45 seconds"
 }
 
+# set-update <version> [damaged|other-app|unsigned]: publishes a fake release to this run's feed.
+# set-update none: nothing to read. A newer version is a copy of this build with its version changed.
+cmd_set_update() {
+  local run; run="$(run_dir)"; local version="${1:?version}" kind="${2:-good}"
+  if [ "$version" = none ]; then echo 'not json' > "$run/feed/latest.json"; return; fi
+  local work; work="$(mktemp -d)"
+  cp -R "$APP" "$work/Noonchi.app"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $version" "$work/Noonchi.app/Contents/Info.plist"
+  [ "$kind" = other-app ] && /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier someone.else" "$work/Noonchi.app/Contents/Info.plist"
+  if [ "$kind" = unsigned ]; then codesign --remove-signature "$work/Noonchi.app" 2>/dev/null; else codesign --force --sign - "$work/Noonchi.app" 2>/dev/null; fi
+  ditto -c -k --keepParent "$work/Noonchi.app" "$run/feed/Noonchi-$version.zip"
+  rm -rf "$work"
+  local digest; digest="$(shasum -a 256 "$run/feed/Noonchi-$version.zip" | cut -d' ' -f1)"
+  [ "$kind" = damaged ] && digest="$(printf '0%.0s' $(seq 1 64))"
+  local base="http://127.0.0.1:$(cat "$run/feed-port")"
+  cat > "$run/feed/latest.json" <<JSON
+{"tag_name":"v$version","html_url":"$base/page","assets":[{"name":"Noonchi-$version.zip","browser_download_url":"$base/Noonchi-$version.zip","digest":"sha256:$digest"}]}
+JSON
+}
+
+# open-update: through the panel's ⋯ menu; waits until the check has finished
+cmd_open_update() {
+  cmd_open_panel
+  ok_reply "press More" || ok_reply "press 더 보기" || die "no ⋯ menu"
+  sleep 0.4
+  ok_reply "press Check for Updates…" || ok_reply "press 업데이트 확인…" || die "no update item in the ⋯ menu"
+  sleep 1.5
+  cmd_close_panel
+  send yield >/dev/null
+}
+
+# wait-new-app: after Install, waits for the replaced app to answer, then adopts its pid
+cmd_wait_new_app() {
+  local run; run="$(run_dir)"; local old; old="$(cat "$run/pid")"
+  for _ in $(seq 1 120); do
+    if ! kill -0 "$old" 2>/dev/null; then
+      local reply; reply="$(send ping 2>/dev/null)" || { sleep 0.5; continue; }
+      field "['pid']" <<<"$reply" > "$run/pid"
+      echo "$reply"
+      return 0
+    fi
+    sleep 0.5
+  done
+  die "the app didn't come back"
+}
+
 cmd_doctor() {
   local run; run="$(run_dir)"; local pid; pid="$(cat "$run/pid")"
   is_our_app "$pid" || die "pid $pid isn't a running verification app"
@@ -295,7 +348,8 @@ cmd_stop() {
   local run; run="$(run_dir)"
   if [ -f "$run/pid" ] && is_our_app "$(cat "$run/pid")"; then kill "$(cat "$run/pid")" 2>/dev/null || true; fi
   sleep 0.5
-  # Fakes this run started; matched by this run's own folder, never by name.
+  # A replaced app has a new pid. Everything this run started is matched by its folder, never by name.
+  [ -f "$run/feed-pid" ] && kill "$(cat "$run/feed-pid")" 2>/dev/null || true
   pkill -f "$run/bin/" 2>/dev/null || true
   local evidence_dir; evidence_dir="$(evidence)"
   rm -f "$CURRENT"; rm -rf "$run"
@@ -317,6 +371,9 @@ case "$command" in
   press-refresh) cmd_press_refresh ;;
   close-settings) cmd_close_settings ;;
   state) send state ;;
+  set-update) cmd_set_update "$@" ;;
+  open-update) cmd_open_update ;;
+  wait-new-app) cmd_wait_new_app ;;
   settings) cmd_settings ;;
   set-claude) cmd_set_claude "$@" ;;
   set-codex) cmd_set_codex "$@" ;;
@@ -326,5 +383,5 @@ case "$command" in
   gap) cmd_gap ;;
   stop) cmd_stop ;;
   evidence) evidence ;;
-  *) echo "usage: control-noonchi build|start [key=value...]|doctor|send <cmd>|open-panel|close-panel|open-settings [tab]|close-settings|refresh|press-refresh|state|settings|wait-idle|set-claude ...|set-codex ...|set-plan <text>|shot <name>|region <name>|gap|evidence|stop" >&2; exit 2 ;;
+  *) echo "usage: control-noonchi build|start [key=value...]|doctor|send <cmd>|open-panel|close-panel|open-settings [tab]|close-settings|set-update <version> [kind]|open-update|wait-new-app|refresh|press-refresh|state|settings|wait-idle|set-claude ...|set-codex ...|set-plan <text>|shot <name>|region <name>|gap|evidence|stop" >&2; exit 2 ;;
 esac

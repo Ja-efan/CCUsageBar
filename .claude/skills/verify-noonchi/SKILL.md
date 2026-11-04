@@ -19,8 +19,8 @@ The feature recipes are in [`features/README.md`](features/README.md). Read the 
 
 | Real | Replaced |
 |---|---|
-| Status item, panel, Settings, every control the driver presses | The `claude` and `codex` executables (through `NOONCHI_CLAUDE_PATH`, `NOONCHI_CODEX_PATH`) |
-| PTY capture, screen replay, parser, JSON-RPC client, UsageStore, saved settings | Home folder (`CFFIXED_USER_HOME`) and bundle ID (`.verify`) |
+| Status item, panel, Settings, the update window, every control the driver presses | The `claude` and `codex` executables (through `NOONCHI_CLAUDE_PATH`, `NOONCHI_CODEX_PATH`) |
+| PTY capture, screen replay, parser, JSON-RPC client, UsageStore, saved settings | Home folder (`CFFIXED_USER_HOME`), bundle ID (`.verify`), GitHub (a local server), and app activation |
 
 The fakes are the only mocks: they sit at the boundary where the app already talks to an outside program. A pass here doesn't prove the real CLIs still answer the same way. When a change touches parsing or CLI behavior, also run the live check under Evidence.
 
@@ -57,6 +57,9 @@ It fails unless the driver answers, the bundle ID is the verification one, and t
 | `$C state` | JSON of each service's loading state, error, plan, and values, with no window |
 | `$C send tick` | Does what the timer does when it fires, without waiting for it |
 | `$C send screen off`, `$C send screen on` | Acts as if the screen locked or came back |
+| `$C set-update 9.9.9 [damaged\|other-app\|unsigned]`, `$C set-update none` | Publishes a fake release to this run's local feed. Also `$C set-update 0.4.2` for up to date |
+| `$C open-update` | ⋯ › Check for Updates, and waits for the result |
+| `$C wait-new-app` | After pressing Install, waits for the replaced app and adopts its pid |
 | `$C wait-idle` | Waits until nothing is loading, with no window |
 | `$C set-claude 5h=86 week=24 Fable=9` | What `/usage` shows on the next read. Add `note=rate-limited` for the model-caps-unavailable notice. Also `not-logged-in`, `hang`, `old-cli` (rejects flags), `enter-lost` (first Enter does nothing) |
 | `$C set-codex free=7`, `$C set-codex plus=18,41` | One 30-day window, or 5-hour and weekly. Also `not-logged-in`, `hang` |
@@ -105,10 +108,11 @@ Ends this run's app and fakes (matched by this run's folder, never by process na
 
 - **Never run the installed app's bundle, `make install`, or `make run` to verify.** They use the user's settings, and writing `io.github.ja-efan.noonchi` has overwritten real choices before.
 - **Never run `defaults` against `io.github.ja-efan.noonchi`.** Only the `.verify` domain, and let the helper do it.
-- **Don't press `Open at login` with this build.** It registers with the system, outside the disposable folder.
+- **Don't press `Open at login` with this build.** It registers with the system, and macOS keeps a disabled record of the deleted test app that `stop` can't remove. It's also why macOS may notify the user. It was checked once: an update keeps the login item.
 - **Say what you couldn't prove.** Only after trying the workarounds here, and name what you tried.
-- **The user is probably working on this Mac.** Measured with `lsappinfo front` every 100 ms: only `open-settings` takes focus, for about 1.3 seconds, and the driver hands it back. Everything else leaves it alone. Keep it that way:
+- **The user is probably working on this Mac.** Measured with `lsappinfo front` every 100 ms: nothing here takes focus, including Settings, the update window, and replacing the app. So this build doesn't prove that a real window comes to the front. Keep it that way:
   - Check values with `$C state` and `$C send status-image <path>`. They open nothing.
   - Open the panel only to capture or press something in it, then close it.
+  - Don't add `NSApp.activate` calls. App windows use `NSApp.bringToFront()`, which does nothing in this build; that's why it doesn't take focus.
   - Windows still appear on screen. Finish in one go, and verify at the end of a task rather than after each edit.
   - Exit 3 from `open-panel` means the user is clicking elsewhere. Don't loop. Wait and retry later, or report it.

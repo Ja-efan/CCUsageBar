@@ -18,7 +18,7 @@ enum SettingsWindow {
             window = w
         }
         window?.title = settings.strings.settingsTitle
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.bringToFront()
         window?.makeKeyAndOrderFront(nil)
     }
 }

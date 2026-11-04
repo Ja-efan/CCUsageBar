@@ -1,5 +1,6 @@
 #if NOONCHI_VERIFY
 import AppKit
+import ServiceManagement
 import UsageCore
 
 /// Verification builds only (`-DNOONCHI_VERIFY`, never in a release). Lets the verify-noonchi
@@ -52,7 +53,8 @@ enum VerifyDriver {
         case "ping":
             return ["ok": true, "pid": Int(getpid()), "bundle": Bundle.main.bundleIdentifier ?? "",
                     "version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
-                    "home": NSHomeDirectory()]
+                    "home": NSHomeDirectory(), "app": Bundle.main.bundlePath,
+                    "loginItem": String(describing: SMAppService.mainApp.status.rawValue)]
         case "click-status":
             guard let button = statusButton else { return ["ok": false, "error": "no status button"] }
             button.performClick(nil)

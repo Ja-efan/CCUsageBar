@@ -51,6 +51,35 @@ struct Strings {
         }
     }
 
+    // Updates
+    var updateMenu: String { t("업데이트 확인…", "Check for Updates…") }
+    var updateTitle: String { t("Noonchi 업데이트", "Noonchi Update") }
+    var updateChecking: String { t("확인하는 중…", "Checking…") }
+    var updateLatest: String { t("최신 버전입니다", "You're up to date") }
+    func updateCurrent(_ version: String) -> String { t("지금 버전은 \(version)입니다.", "This is version \(version).") }
+    func updateAvailable(_ version: String) -> String { t("\(version) 버전이 나왔습니다", "Version \(version) is available") }
+    func updateInstallNote(_ current: String) -> String {
+        t("지금 버전은 \(current)입니다. 설치하면 GitHub 릴리스에서 내려받아 교체하고 앱을 다시 엽니다. 설정은 유지됩니다. 이 앱은 Apple 공증을 받지 않았습니다.",
+          "You have \(current). Installing downloads it from GitHub Releases, replaces the app, and reopens it. Your settings stay. This app isn't notarized by Apple.")
+    }
+    var updateFromSource: String { t("이 빌드는 소스에서 설치합니다. 브랜치를 옮긴 뒤 make install을 실행하세요.", "This build installs from source. Rebase the branch and run make install.") }
+    var done: String { t("확인", "OK") }
+    var updateInstall: String { t("설치", "Install") }
+    var updateLater: String { t("나중에", "Later") }
+    var updateChanges: String { t("변경 내용", "What's New") }
+    var updateDownloading: String { t("내려받는 중…", "Downloading…") }
+    var updateFailed: String { t("업데이트하지 못했어요", "Couldn't update") }
+    var updateOpenPage: String { t("릴리스 페이지 열기", "Open Releases") }
+    func updateFailure(_ failure: UpdateFailure) -> String {
+        switch failure {
+        case .network: return t("GitHub에 연결하지 못했어요. 지금 앱은 그대로입니다.", "Couldn't reach GitHub. Your app hasn't changed.")
+        case .unreadableRelease: return t("릴리스 정보를 읽지 못했어요. 지금 앱은 그대로입니다.", "Couldn't read the release. Your app hasn't changed.")
+        case .damagedDownload: return t("받은 파일이 손상됐어요. 지금 앱은 그대로입니다.", "The download is damaged. Your app hasn't changed.")
+        case .cannotWriteToApp: return t("앱 폴더에 쓸 수 없어요. 릴리스 페이지에서 받아 ~/Applications로 옮겨 주세요.", "Can't write to the app's folder. Get it from Releases and move it to ~/Applications.")
+        case .invalidApp: return t("받은 앱이 올바르지 않아요. 지금 앱은 그대로입니다.", "The downloaded app isn't valid. Your app hasn't changed.")
+        }
+    }
+
     // Raw output window
     var rawOutputTitle: String { t("Noonchi · 원본 출력", "Noonchi · Raw output") }
     var notYet: String { t("(아직 없음)", "(nothing yet)") }

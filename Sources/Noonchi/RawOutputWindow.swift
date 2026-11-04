@@ -21,7 +21,7 @@ enum RawOutputWindow {
             window = w
         }
         window?.title = settings.strings.rawOutputTitle
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.bringToFront()
         window?.makeKeyAndOrderFront(nil)
     }
 }

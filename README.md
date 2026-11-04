@@ -17,7 +17,7 @@ Noonchi shows the limits as numbers in the macOS menu bar. The panel lists every
 
 - **The numbers are right in the menu bar.** By default each service shows its 5-hour limit (or its shortest one if it has none). It turns orange at 80% and red at 95%.
 - **It never reads your credentials.** No Keychain, no browser cookies, no auth files under `~/.claude` or `~/.codex`, no conversation logs. It uses what the official `claude` and `codex` CLIs report.
-- **The app itself makes no network requests.** Only the CLIs talk to their servers. The app has no networking code and no auto-updater.
+- **The app only goes online when you ask.** Only the CLIs talk to their servers for usage. The app connects to GitHub only when you choose Check for Updates or Install, and it sends nothing about you.
 - **It reads the screen after it finishes updating.** Claude Code's `/usage` first draws cached numbers, then overwrites only the digits that changed. Noonchi replays the output on an emulated terminal screen and reads the final values. In 30 real captures, the old approach (reading the output as plain text) returned the pre-refresh value 23 times; the current approach matched Claude Code's screen all 30 times.
 - **It warns you when you're on track to hit a limit.** Only when your pace so far would reach a limit before it resets, the panel shows one line ("On pace to hit the 5-hour limit by 3:10 PM"). It keeps no history; it works from the current values.
 
@@ -27,7 +27,7 @@ Good to know:
 - Each Claude Code refresh launches Claude Code once, which costs about 2.6 s of CPU (about 30 s per hour at the default 5-minute interval). A Codex refresh asks `codex app-server` once, about 0.2–0.3 s. Set a longer interval in Settings to use less. Refreshes are skipped while the screen is off.
 - The app itself uses about 26 MB of memory and 3 s of CPU per hour with both services at their old intervals (measured over one hour; memory went from 20 MB to 26 MB).
 - Claude Code records Noonchi's working folder (`~/Library/Application Support/Noonchi`) in the project list in `~/.claude.json`. Noonchi doesn't write that file itself.
-- There are no automatic updates. If a CLI changes its output, you'll need to update Noonchi yourself.
+- Noonchi doesn't check for updates by itself. If a CLI changes its output, you'll need a new version.
 
 ## Settings
 
@@ -77,6 +77,12 @@ make install      # build → install to ~/Applications → launch
 **Download.** Get `Noonchi-x.y.z.zip` from [Releases](https://github.com/Ja-efan/Noonchi/releases/latest), unzip it, and move `Noonchi.app` to `~/Applications`. The app isn't notarized by Apple, so macOS blocks the first launch: try to open it once, then click **Open Anyway** in System Settings › Privacy & Security.
 
 To start it at login, turn on Settings › General › "Open at login".
+
+### Updating
+
+Choose `⋯` › Check for Updates in the panel. If there's a new version, Install downloads it from GitHub Releases, replaces the app, and reopens it. Your settings stay. If you built from source, you can also run `git pull && make install`.
+
+The update isn't signed by a key of its own or notarized by Apple. The app checks the file's SHA-256 from GitHub, its bundle ID, version, and code signature, which catches a damaged download but wouldn't catch a compromised GitHub release.
 
 ## Development
 
