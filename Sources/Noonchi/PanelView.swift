@@ -134,6 +134,32 @@ struct PaceLine: View {
     }
 }
 
+/// Reports the height of the whole panel.
+private struct PanelHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// A MenuBarExtra window grows with its content but never shrinks, which leaves a blank
+/// band under the menu bar. Sets the window's height directly, keeping its top edge in place.
+private struct PanelWindowFitter: NSViewRepresentable {
+    let height: CGFloat
+
+    func makeNSView(context: Context) -> NSView { NSView() }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        // The window isn't attached yet on the first update, and resizing it during a
+        // SwiftUI update would re-enter layout.
+        DispatchQueue.main.async {
+            guard height > 0, let window = view.window, abs(window.frame.height - height) > 0.5 else { return }
+            var frame = window.frame
+            frame.origin.y += frame.height - height
+            frame.size.height = height
+            window.setFrame(frame, display: true)
+        }
+    }
+}
+
 /// Reports the natural height of the scrollable content.
 private struct ContentHeightKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
@@ -144,6 +170,7 @@ struct PanelView: View {
     @ObservedObject var store: UsageStore
     @ObservedObject var settings: AppSettings
     static let maxContentHeight: CGFloat = 560
+    @State private var panelHeight: CGFloat = 0
 
     private var s: Strings { settings.strings }
 
@@ -217,5 +244,10 @@ struct PanelView: View {
             .padding(.vertical, 7)
         }
         .frame(width: 320)
+        .background(GeometryReader { g in
+            Color.clear.preference(key: PanelHeightKey.self, value: g.size.height)
+        })
+        .onPreferenceChange(PanelHeightKey.self) { panelHeight = $0 }
+        .background(PanelWindowFitter(height: panelHeight))
     }
 }
