@@ -196,7 +196,7 @@ cmd_refresh() {
 # press-refresh: the panel's Refresh button, the path a user takes
 cmd_press_refresh() {
   cmd_open_panel
-  ok_reply "press Refresh" || die "no Refresh button (already refreshing?)"
+  ok_reply "press Refresh" || ok_reply "press 새로고침" || die "no Refresh button (already refreshing?)"
   sleep 0.3
   cmd_wait_idle
 }
@@ -204,8 +204,9 @@ cmd_press_refresh() {
 # open-settings [General|Services]: through the panel's ⋯ menu, as a user does
 cmd_open_settings() {
   cmd_open_panel
-  send press More >/dev/null; sleep 0.4
-  ok_reply "press Settings…" || die "no Settings… item in the ⋯ menu"
+  ok_reply "press More" || ok_reply "press 더 보기" || die "no ⋯ menu"
+  sleep 0.4
+  ok_reply "press Settings…" || ok_reply "press 설정…" || die "no Settings… item in the ⋯ menu"
   sleep 0.8
   cmd_close_panel
   if [ -n "${1:-}" ]; then ok_reply "tab $1" || die "no tab $1"; sleep 0.5; fi
