@@ -41,6 +41,7 @@ final class AppSettings: ObservableObject {
         static let barColor = "barColor"
         static let knownWindows = "knownWindows"
         static let disabled = "disabledProviders"
+        static let refreshMinutes = "refreshMinutes"
         static let version = "settingsVersion"
     }
 
@@ -54,6 +55,7 @@ final class AppSettings: ObservableObject {
     /// Nil means the system color.
     @Published var barColorHex: String? { didSet { defaults.set(barColorHex ?? "system", forKey: Key.barColor) } }
     @Published var disabledProviders: Set<String> { didSet { defaults.set(Array(disabledProviders), forKey: Key.disabled) } }
+    @Published var refreshInterval: RefreshInterval { didSet { defaults.set(refreshInterval.rawValue, forKey: Key.refreshMinutes) } }
     /// Window IDs seen per service and when, so they can be picked before the next refresh.
     @Published private(set) var knownWindows: [String: [String: Date]] {
         didSet { defaults.set(knownWindows, forKey: Key.knownWindows) }
@@ -71,6 +73,7 @@ final class AppSettings: ObservableObject {
         highlightHigh = d.object(forKey: Key.highlightHigh) as? Bool ?? true
         barColorHex = d.string(forKey: Key.barColor).flatMap { $0 == "system" ? nil : $0 }
         disabledProviders = Set(d.stringArray(forKey: Key.disabled) ?? [])
+        refreshInterval = RefreshInterval(saved: d.object(forKey: Key.refreshMinutes) as? Int)
         knownWindows = d.dictionary(forKey: Key.knownWindows) as? [String: [String: Date]] ?? [:]
     }
 

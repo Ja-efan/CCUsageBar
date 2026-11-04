@@ -7,8 +7,9 @@ public struct ClaudeCodeProvider: UsageProvider {
     public let displayName = "Claude Code"
     public let symbolName = "asterisk"
     public let monogram = "C"
-    /// Each read starts a full Claude Code session, so poll slowly.
-    public let refreshInterval: Duration = .seconds(300)
+    /// Without this, every read starts the user's MCP servers: 9 processes instead of 2,
+    /// and 3.1 s of CPU instead of 2.6 s.
+    static let launchArguments = ["--strict-mcp-config"]
     public var timeout: TimeInterval = 25
     public var workDirectory: String
 
@@ -63,7 +64,9 @@ public struct ClaudeCodeProvider: UsageProvider {
 
     func readSnapshot() -> UsageSnapshot {
         guard let claude = locateExecutable() else { return UsageSnapshot(error: .claudeNotFound) }
-        let (raw, err) = capture(claudePath: claude)
+        var (raw, err) = capture(claudePath: claude, arguments: Self.launchArguments)
+        // A CLI that no longer knows the flag must still give a reading.
+        if Self.rejectedArguments(raw) { (raw, err) = capture(claudePath: claude, arguments: []) }
         // Read the final screen; fall back to the stream if the view scrolled off.
         let screen = TerminalScreen.render(raw, columns: Self.columns, rows: Self.rows).text
         var snap = UsageParser.parse(screen)
@@ -101,7 +104,11 @@ public struct ClaudeCodeProvider: UsageProvider {
         try? FileManager.default.removeItem(atPath: workDirectory + "/last-output.raw.txt")
     }
 
-    func capture(claudePath: String) -> (String, UsageError?) {
+    static func rejectedArguments(_ output: String) -> Bool {
+        output.range(of: "unknown option", options: .caseInsensitive) != nil
+    }
+
+    func capture(claudePath: String, arguments: [String]) -> (String, UsageError?) {
         try? FileManager.default.createDirectory(atPath: workDirectory, withIntermediateDirectories: true)
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: workDirectory, isDirectory: &isDirectory), isDirectory.boolValue
@@ -112,7 +119,7 @@ public struct ClaudeCodeProvider: UsageProvider {
         env["TERM"] = "xterm-256color"
         env["HOME"] = home
         env["PATH"] = "\(home)/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
-        guard let pty = PTYSession.spawn(executable: claudePath, environment: env, directory: workDirectory,
+        guard let pty = PTYSession.spawn(executable: claudePath, arguments: arguments, environment: env, directory: workDirectory,
                                          columns: Self.columns, rows: Self.rows)
         else { return ("", .launchFailed) }
 

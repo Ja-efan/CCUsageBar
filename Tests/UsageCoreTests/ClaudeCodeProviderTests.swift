@@ -28,6 +28,11 @@ final class ClaudeCodeProviderTests: XCTestCase {
         XCTAssertEqual(usage.window(id: "5h")?.resetsAt, Date(timeIntervalSince1970: 6 * 3600))
     }
 
+    func testRejectedFlagIsNoticed() {
+        XCTAssertTrue(ClaudeCodeProvider.rejectedArguments("error: unknown option '--strict-mcp-config'"))
+        XCTAssertFalse(ClaudeCodeProvider.rejectedArguments("Current session\n5% used"))
+    }
+
     func testErrorMapping() {
         let all: [UsageError] = [.claudeNotFound, .launchFailed, .noResponse, .notLoggedIn, .apiBilling, .unparsable]
         XCTAssertEqual(all.map(ProviderError.init),

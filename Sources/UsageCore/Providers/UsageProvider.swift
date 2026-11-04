@@ -9,7 +9,6 @@ public protocol UsageProvider: Sendable {
     var symbolName: String { get }
     /// One letter for the monogram and ring icon styles.
     var monogram: String { get }
-    var refreshInterval: Duration { get }
     /// Nil means the service's CLI isn't installed.
     func locateExecutable() -> String?
     /// Throws `ProviderFailure`.

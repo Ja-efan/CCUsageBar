@@ -24,7 +24,7 @@ Noonchi shows the limits as numbers in the macOS menu bar. The panel lists every
 Method and data: [`docs/benchmark.md`](docs/benchmark.md) (in Korean)
 
 Good to know:
-- Each Claude Code refresh launches Claude Code once, which costs about 3.5 s of CPU (about 40 s per hour at the 5-minute interval). A Codex refresh asks `codex app-server` once, about 0.2–0.3 s of CPU (every 2 minutes).
+- Each Claude Code refresh launches Claude Code once, which costs about 2.6 s of CPU (about 30 s per hour at the default 5-minute interval). A Codex refresh asks `codex app-server` once, about 0.2–0.3 s. Set a longer interval in Settings to use less. Refreshes are skipped while the screen is off.
 - App memory of about 24 MB (measured over one hour, no growth) was measured on v0.3.
 - Claude Code records Noonchi's working folder (`~/Library/Application Support/Noonchi`) in the project list in `~/.claude.json`. Noonchi doesn't write that file itself.
 - There are no automatic updates. If a CLI changes its output, you'll need to update Noonchi yourself.
@@ -42,6 +42,7 @@ Open them from `⋯` › Settings at the bottom of the panel. Changes are saved 
 | | Icon | Symbol / Letter / Ring (fills with usage) |
 | | Highlight high usage | Orange at 80%, red at 95% (on by default) |
 | | Bar color | System / 7 presets |
+| | Refresh | Every 2 / 5 / 10 / 15 / 30 minutes (default 5). Longer uses less CPU, but limit warnings can come later |
 | | Language | 한국어 / English (defaults to the system language) |
 | | Open at login | Registers Noonchi as a macOS login item |
 | Services | Each service | Detection status and path, on/off, menu bar items in Custom mode |
@@ -50,9 +51,9 @@ If you picked menu bar items in v0.3, they move to Custom so the menu bar looks 
 
 ## How it works
 
-- **Claude Code**: every 5 minutes (and on wake from sleep), it runs `claude` in a pseudo-terminal (PTY) in the background, sends `/usage`, reads the screen once the refresh is done, and quits it. It never calls a model, so **it uses no tokens.** Claude Code runs in `~/Library/Application Support/Noonchi`.
-- **Codex**: every 2 minutes, it runs `codex app-server`, asks `account/rateLimits/read`, and quits it. It never calls `account/read` (which returns your email), and it drops the account ID from the response.
-- Each service refreshes on its own, so a slow one doesn't hold up the other. If a refresh fails, the last values stay, dimmed, with a one-line reason.
+- **Claude Code**: at each refresh, it runs `claude` in a pseudo-terminal (PTY) in the background with your MCP servers turned off for that run (`--strict-mcp-config`), sends `/usage`, reads the screen once the refresh is done, and quits it. It never calls a model, so **it uses no tokens.** Claude Code runs in `~/Library/Application Support/Noonchi`.
+- **Codex**: at each refresh, it runs `codex app-server`, asks `account/rateLimits/read`, and quits it. It never calls `account/read` (which returns your email), and it drops the account ID from the response.
+- It refreshes at the interval you set, on launch, on wake from sleep, and when the screen comes back. Each service reads on its own, so a slow one doesn't hold up the other. If a refresh fails, the last values stay, dimmed, with a one-line reason.
 - Services that aren't installed aren't polled or shown.
 
 ## Requirements

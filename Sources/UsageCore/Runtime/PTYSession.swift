@@ -11,13 +11,13 @@ public final class PTYSession {
     private let master: Int32
 
     /// Starts `executable` in `directory`. Returns nil if the terminal couldn't be created.
-    public static func spawn(executable: String, environment: [String: String], directory: String,
+    public static func spawn(executable: String, arguments: [String] = [], environment: [String: String], directory: String,
                              columns: Int, rows: Int) -> PTYSession? {
         // Build every C string before fork: the child of a multithreaded process may only
         // make async-signal-safe calls, and allocating there can deadlock on a held malloc lock.
         let path = strdup(executable)
         let dir = strdup(directory)
-        let argv: [UnsafeMutablePointer<CChar>?] = [strdup(executable), nil]
+        let argv: [UnsafeMutablePointer<CChar>?] = ([executable] + arguments).map { strdup($0) } + [nil]
         let envp: [UnsafeMutablePointer<CChar>?] = environment.map { strdup("\($0.key)=\($0.value)") } + [nil]
         defer { ([path, dir] + argv + envp).forEach { free($0) } }
 

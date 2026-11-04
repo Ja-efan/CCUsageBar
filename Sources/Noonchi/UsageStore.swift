@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 import UsageCore
 
@@ -10,7 +11,13 @@ final class UsageStore: ObservableObject {
     var paceModel: any PaceModel = PaceEstimator()
     private var observers: [any UsageObserver] = []
 
-    private var timers: [Timer] = []
+    private var timer: Timer?
+    private var intervalChange: AnyCancellable?
+    private var screenAsleep = false
+    private var screenLocked = false
+    private var screenOff: Bool { screenAsleep || screenLocked }
+    /// A scheduled read was held back, so the screen coming back should catch up.
+    private var skippedRead = false
     /// Bumped when a service is turned off, so a read started before that is dropped.
     private var generation: [ProviderID: Int] = [:]
 
@@ -19,19 +26,61 @@ final class UsageStore: ObservableObject {
         VerifyDriver.start(store: self)
 #endif
         refresh()
-        // Each service polls on its own interval and never waits for another.
-        for provider in Providers.all {
-            let interval = TimeInterval(provider.refreshInterval.components.seconds)
-            timers.append(Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
-                Task { @MainActor in self?.refresh(provider) }
-            })
-        }
+        intervalChange = AppSettings.shared.$refreshInterval.sink { [weak self] in self?.startTimer($0) }
         // Timers don't fire during sleep; values would be stale for up to one interval.
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
+            Task { @MainActor in self?.readDueServices() }
         }
+        observeScreen()
+    }
+
+    private func startTimer(_ interval: RefreshInterval) {
+        timer?.invalidate()
+        let timer = Timer(timeInterval: interval.seconds, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.readDueServices() }
+        }
+        timer.tolerance = interval.seconds / 10 // lets macOS group wakeups
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    private func observeScreen() {
+        let workspace = NSWorkspace.shared.notificationCenter
+        workspace.addObserver(forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.setScreen(asleep: true) }
+        }
+        workspace.addObserver(forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.setScreen(asleep: false) }
+        }
+        let distributed = DistributedNotificationCenter.default()
+        distributed.addObserver(forName: Notification.Name("com.apple.screenIsLocked"), object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.setScreen(locked: true) }
+        }
+        distributed.addObserver(forName: Notification.Name("com.apple.screenIsUnlocked"), object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.setScreen(locked: false) }
+        }
+    }
+
+    func setScreen(asleep: Bool? = nil, locked: Bool? = nil) {
+        if let asleep { screenAsleep = asleep }
+        if let locked { screenLocked = locked }
+        if !screenOff, skippedRead { readDueServices() }
+    }
+
+    /// The timer, wake, and the screen coming back all land here. The Refresh button doesn't:
+    /// someone pressing it wants a read.
+    func readDueServices() {
+        var skipped = false
+        for provider in Providers.all {
+            if ScheduledRead.isDue(screenOff: screenOff, lastAttempt: states[provider.id]?.lastAttempt, now: Date()) {
+                refresh(provider)
+            } else {
+                skipped = true
+            }
+        }
+        skippedRead = skipped
     }
 
     var isLoading: Bool { states.values.contains { $0.isLoading } }

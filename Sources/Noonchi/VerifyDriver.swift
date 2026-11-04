@@ -68,6 +68,15 @@ enum VerifyDriver {
         case "refresh":
             store?.refresh()
             return ["ok": true]
+        case "tick":
+            // What the timer does when it fires, without waiting for it.
+            store?.readDueServices()
+            return ["ok": true]
+        case "screen":
+            // `on` or `off`. Stands in for the lock notification: posting the real one
+            // would reach every app on the Mac.
+            store?.setScreen(locked: argument == "off")
+            return ["ok": true, "screen": argument]
         case "yield":
             handFocusBack()
             return ["ok": true]

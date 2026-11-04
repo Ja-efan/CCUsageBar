@@ -53,6 +53,8 @@ write_fakes() { # fake CLIs read their answers from state files, so refreshes ca
 #!/bin/bash
 echo "Opus 5.5 · \$(cat "$run/state/claude.plan")"
 if [ "\$(cat "$run/state/claude.mode")" = hang ]; then sleep 40; exit 0; fi
+if [ "\$(cat "$run/state/claude.mode")" = old-cli ] && [ \$# -gt 0 ]; then echo "error: unknown option '\$1'"; exit 1; fi
+echo "\$*" >> "$run/state/claude.args"
 printf '❯ '
 read -r -t 20 _ || exit 0
 cat "$run/state/claude.txt"
@@ -84,6 +86,7 @@ cmd_set_claude() {
   local run; run="$(run_dir)"; local state="$run/state"
   case "${1:-}" in
     hang) echo hang > "$state/claude.mode"; return ;;
+    old-cli) echo old-cli > "$state/claude.mode"; return ;;
     not-logged-in) echo ok > "$state/claude.mode"; echo "Not logged in · Please run /login" > "$state/claude.txt"; return ;;
   esac
   echo ok > "$state/claude.mode"; : > "$state/claude.txt"

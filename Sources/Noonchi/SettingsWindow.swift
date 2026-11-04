@@ -69,6 +69,15 @@ private struct GeneralSettings: View {
                 }
             }
 
+            Section {
+                Picker(selection: $settings.refreshInterval) {
+                    ForEach(RefreshInterval.allCases) { Text(s.every($0)).tag($0) }
+                } label: {
+                    Text(s.refreshEvery)
+                    Text(s.refreshHint)
+                }
+            }
+
             Section(s.colors) {
                 Toggle(isOn: $settings.highlightHigh) {
                     Text(s.highlightHigh)
@@ -141,7 +150,7 @@ private struct ServiceSettings: View {
                                 .frame(width: 7, height: 7)
                             Text(provider.displayName)
                         }
-                        Text(path.map { "\(Self.abbreviate($0)) · \(s.every(provider.refreshInterval))" } ?? s.notInstalled)
+                        Text(path.map { "\(Self.abbreviate($0)) · \(s.every(settings.refreshInterval))" } ?? s.notInstalled)
                     }
                     .disabled(path == nil)
 

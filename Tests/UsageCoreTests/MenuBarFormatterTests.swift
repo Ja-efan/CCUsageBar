@@ -157,3 +157,33 @@ final class PaceEstimatorTests: XCTestCase {
         XCTAssertNil(estimator.projectedLimit(for: window(30), provider: ProviderID("claude"), now: now))
     }
 }
+
+final class RefreshIntervalTests: XCTestCase {
+    func testSavedValues() {
+        XCTAssertEqual(RefreshInterval(saved: nil), .five)
+        XCTAssertEqual(RefreshInterval(saved: 10), .ten)
+        XCTAssertEqual(RefreshInterval(saved: 1), .five)
+        XCTAssertEqual(RefreshInterval.thirty.seconds, 1800)
+    }
+}
+
+final class ScheduledReadTests: XCTestCase {
+    private let now = Date(timeIntervalSince1970: 100_000)
+
+    func testScreenOnAlwaysReads() {
+        XCTAssertTrue(ScheduledRead.isDue(screenOff: false, lastAttempt: now, now: now))
+    }
+
+    func testScreenOffHolds() {
+        XCTAssertFalse(ScheduledRead.isDue(screenOff: true, lastAttempt: now.addingTimeInterval(-300), now: now))
+    }
+
+    /// A missed unlock notification must not stop reads for good.
+    func testLongestHoldThenReads() {
+        XCTAssertTrue(ScheduledRead.isDue(screenOff: true, lastAttempt: now.addingTimeInterval(-3600), now: now))
+    }
+
+    func testNeverReadReads() {
+        XCTAssertTrue(ScheduledRead.isDue(screenOff: true, lastAttempt: nil, now: now))
+    }
+}
