@@ -82,7 +82,7 @@ To start it at login, turn on Settings › General › "Open at login".
 
 Choose `⋯` › Check for Updates in the panel. If there's a new version, Install downloads it from GitHub Releases, replaces the app, and reopens it. Your settings stay. If you built from source, you can also run `git pull && make install`.
 
-The update isn't signed by a key of its own or notarized by Apple. The app checks the file's SHA-256 from GitHub, its bundle ID, version, and code signature, which catches a damaged download but wouldn't catch a compromised GitHub release.
+Updates aren't notarized or separately signed. The app checks the download's SHA-256, bundle ID, and code signature.
 
 ## Development
 
