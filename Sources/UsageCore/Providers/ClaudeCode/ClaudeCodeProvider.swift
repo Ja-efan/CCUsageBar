@@ -93,7 +93,9 @@ public struct ClaudeCodeProvider: UsageProvider {
     }
 
     static let columns = 140
-    static let rows = 50
+    /// `/usage` grows with local session stats. Anything taller than this scrolls the session
+    /// limit off the top, and the weekly limits still parse, so nothing reports a failure.
+    static let rows = 200
 
     /// Last captured screen, for troubleshooting parser issues.
     public var debugFile: String { workDirectory + "/last-output.txt" }

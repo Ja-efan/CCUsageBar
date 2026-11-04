@@ -83,3 +83,41 @@ final class TrustPromptTests: XCTestCase {
         XCTAssertNil(ClaudeCodeProvider.trustPromptKey("❯ Try \"how does <filepath> work?\""))
     }
 }
+
+final class TallUsageScreenTests: XCTestCase {
+    /// Stands in for `claude`: a prompt, then a `/usage` screen so long that on a short terminal
+    /// only the session limit is lost. The weekly limits stay readable, so no fallback runs.
+    private let script = """
+    #!/bin/sh
+    printf '\\342\\235\\257 \\n'
+    read -r _
+    echo 'Current session'
+    echo '60% used'
+    echo 'Resets 3:20am (Asia/Seoul)'
+    i=0; while [ $i -lt 60 ]; do echo "stats line $i"; i=$((i+1)); done
+    echo 'Current week (all models)'
+    echo '45% used'
+    echo 'Resets Nov 8 at 9am (Asia/Seoul)'
+    echo 'Current week (Fable)'
+    echo '2% used'
+    echo 'Resets Nov 8 at 9am (Asia/Seoul)'
+    sleep 30
+    """
+
+    func testSessionLimitSurvivesATallScreen() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let fake = dir.appendingPathComponent("claude")
+        try script.write(to: fake, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fake.path)
+
+        setenv("NOONCHI_CLAUDE_PATH", fake.path, 1)
+        defer { unsetenv("NOONCHI_CLAUDE_PATH") }
+        let snap = ClaudeCodeProvider(workDirectory: dir.path).readSnapshot()
+
+        XCTAssertEqual(snap.sessionPercent, 60)
+        XCTAssertEqual(snap.sessionReset, "3:20am (Asia/Seoul)")
+        XCTAssertEqual(snap.weekPercent, 45)
+    }
+}
