@@ -56,7 +56,7 @@ It fails unless the driver answers, the bundle ID is the verification one, and t
 | `$C press-refresh` | The panel's Refresh button. Use when the button itself is under test |
 | `$C state` | JSON of each service's loading state, error, plan, and values, with no window |
 | `$C wait-idle` | Waits until nothing is loading, with no window |
-| `$C set-claude 5h=86 week=24 Fable=9` | What `/usage` shows on the next read. Also `not-logged-in`, `hang` |
+| `$C set-claude 5h=86 week=24 Fable=9` | What `/usage` shows on the next read. Add `note=rate-limited` for the model-caps-unavailable notice. Also `not-logged-in`, `hang` |
 | `$C set-codex free=7`, `$C set-codex plus=18,41` | One 30-day window, or 5-hour and weekly. Also `not-logged-in`, `hang` |
 | `$C send press <label>` | Presses a button, menu item, popup, or chip by its visible label |
 | `$C send toggle <text>` | Presses the switch next to that text |

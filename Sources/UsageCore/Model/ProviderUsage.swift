@@ -13,12 +13,16 @@ public struct ProviderUsage: Equatable, Sendable {
     public var fetchedAt: Date
     /// Original output, for the raw output window.
     public var raw: String
+    /// The service couldn't report its model caps this time; they may still exist.
+    public var modelWindowsUnavailable: Bool
 
-    public init(plan: String? = nil, windows: [UsageWindow], fetchedAt: Date = Date(), raw: String = "") {
+    public init(plan: String? = nil, windows: [UsageWindow], fetchedAt: Date = Date(), raw: String = "",
+                modelWindowsUnavailable: Bool = false) {
         self.plan = plan
         self.windows = windows
         self.fetchedAt = fetchedAt
         self.raw = raw
+        self.modelWindowsUnavailable = modelWindowsUnavailable
     }
 
     public func window(id: String) -> UsageWindow? { windows.first { $0.id == id } }

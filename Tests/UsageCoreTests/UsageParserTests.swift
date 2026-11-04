@@ -68,6 +68,14 @@ final class RealOutputTests: XCTestCase {
     }
 }
 
+final class ModelBreakdownTests: XCTestCase {
+    func testNoticeIsDetected() {
+        let text = "Current session\n37% used\nPer-model breakdown unavailable (rate limited)"
+        XCTAssertTrue(UsageParser.parse(text).modelLimitsUnavailable)
+        XCTAssertFalse(UsageParser.parse("Current session\n37% used").modelLimitsUnavailable)
+    }
+}
+
 final class PlanTests: XCTestCase {
     func testPlanWithAndWithoutSpaces() {
         XCTAssertEqual(UsageParser.plan(in: "▝▜██████▀  Opus 5.5 · Claude Max"), "Max")

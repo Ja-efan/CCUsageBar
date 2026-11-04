@@ -4,13 +4,23 @@
 set -euo pipefail
 
 REPO="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
-SCRATCH_ROOT="${TMPDIR:-/tmp}noonchi-verify"
+SCRATCH_ROOT="${TMPDIR:-/tmp}"; SCRATCH_ROOT="${SCRATCH_ROOT%/}/noonchi-verify"
 APP="$REPO/.build/verify-app/NoonchiVerify.app"
 CURRENT="$SCRATCH_ROOT/current"
 BUNDLE_ID="io.github.ja-efan.noonchi.verify"
 
 die() { echo "error: $*" >&2; exit 1; }
-run_dir() { [ -L "$CURRENT" ] && readlink "$CURRENT" || die "no run; use: control-noonchi start"; }
+run_dir() {
+  [ -L "$CURRENT" ] || die "no run; use: control-noonchi start"
+  local run; run="$(readlink "$CURRENT")"
+  case "$run" in
+    "$SCRATCH_ROOT"/*/*|*..*) die "bad run folder: $run" ;;
+    "$SCRATCH_ROOT"/*) echo "$run" ;;
+    *) die "bad run folder: $run" ;;
+  esac
+}
+# True only if the pid is alive and really is this build, not a reused pid.
+is_our_app() { kill -0 "$1" 2>/dev/null && ps -p "$1" -o command= | grep -qF "$APP"; }
 evidence() { echo "$REPO/.verify-artifacts/$(basename "$(run_dir)")"; }
 
 send() { # send <command...>: prints the driver's JSON reply
@@ -69,7 +79,7 @@ FAKE
   chmod +x "$run/bin/claude" "$run/bin/codex"
 }
 
-# set-claude 5h=86 week=24 fable=9 | set-claude not-logged-in | set-claude hang
+# set-claude 5h=86 week=24 Fable=9 [note=rate-limited] | set-claude not-logged-in | set-claude hang
 cmd_set_claude() {
   local run; run="$(run_dir)"; local state="$run/state"
   case "${1:-}" in
@@ -80,6 +90,7 @@ cmd_set_claude() {
   for pair in "$@"; do
     local key="${pair%%=*}" value="${pair##*=}"
     case "$key" in
+      note) printf 'Per-model breakdown unavailable (rate limited)\n' >> "$state/claude.txt" ;;
       5h)   printf 'Current session\n██ %s%% used\nResets 3pm (Asia/Seoul)\n' "$value" >> "$state/claude.txt" ;;
       week) printf 'Current week (all models)\n██ %s%% used\nResets Nov 8 at 9am (Asia/Seoul)\n' "$value" >> "$state/claude.txt" ;;
       *)    printf 'Current week (%s)\n██ %s%% used\nResets Nov 8 at 9am (Asia/Seoul)\n' "$key" "$value" >> "$state/claude.txt" ;;
@@ -110,7 +121,7 @@ PY
 # start [key=value ...]: optional settings written before launch, e.g. language=ko menuBar.mode=custom
 cmd_start() {
   [ -x "$APP/Contents/MacOS/Noonchi" ] || die "not built; use: control-noonchi build"
-  if [ -L "$CURRENT" ] && [ -f "$(readlink "$CURRENT")/pid" ] && kill -0 "$(cat "$(readlink "$CURRENT")/pid")" 2>/dev/null; then
+  if [ -L "$CURRENT" ] && [ -f "$(readlink "$CURRENT")/pid" ] && is_our_app "$(cat "$(readlink "$CURRENT")/pid")"; then
     die "a run is active; use: control-noonchi stop"
   fi
   local run="$SCRATCH_ROOT/$(date +%Y%m%d-%H%M%S)-$$"
@@ -218,13 +229,12 @@ cmd_wait_idle() { # asks the app directly, so no window has to open
 
 cmd_doctor() {
   local run; run="$(run_dir)"; local pid; pid="$(cat "$run/pid")"
-  kill -0 "$pid" 2>/dev/null || die "app pid $pid isn't running"
+  is_our_app "$pid" || die "pid $pid isn't a running verification app"
   local reply; reply="$(send ping)"
   local bundle home version
   bundle="$(field "['bundle']" <<<"$reply")"; home="$(field "['home']" <<<"$reply")"; version="$(field "['version']" <<<"$reply")"
   [ "$bundle" = "$BUNDLE_ID" ] || die "wrong bundle: $bundle"
   [ "$home" = "$run/home" ] || [ "/private$home" = "$run/home" ] || [ "$home" = "/private$run/home" ] || die "app isn't isolated, home is $home"
-  ps -p "$pid" -o command= | grep -q "$APP" || die "pid $pid isn't the verification app"
   local changed=no
   if [ -f "$run/real-settings-mtime" ] && [ "$(stat -f %m "$HOME/Library/Preferences/io.github.ja-efan.noonchi.plist")" != "$(cat "$run/real-settings-mtime")" ]; then changed=yes; fi
   echo "ok: pid=$pid version=$version build=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$APP/Contents/Info.plist") head=$(git -C "$REPO" rev-parse --short HEAD) home=$home"
@@ -273,7 +283,7 @@ print('window height', panel['frame']['h'], 'gap below menu item', info['status'
 
 cmd_stop() {
   local run; run="$(run_dir)"
-  if [ -f "$run/pid" ]; then kill "$(cat "$run/pid")" 2>/dev/null || true; fi
+  if [ -f "$run/pid" ] && is_our_app "$(cat "$run/pid")"; then kill "$(cat "$run/pid")" 2>/dev/null || true; fi
   sleep 0.5
   # Fakes this run started; matched by this run's own folder, never by name.
   pkill -f "$run/bin/" 2>/dev/null || true

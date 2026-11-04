@@ -57,7 +57,8 @@ public struct ClaudeCodeProvider: UsageProvider {
             windows.append(UsageWindow(id: "model:\(m.name)", kind: .model(name: m.name, minutes: 10080),
                                        usedPercent: Double(p), resetsAt: reset(m.reset), resetText: m.reset))
         }
-        return .success(ProviderUsage(plan: snap.plan, windows: windows, fetchedAt: snap.updatedAt, raw: snap.raw))
+        return .success(ProviderUsage(plan: snap.plan, windows: windows, fetchedAt: snap.updatedAt, raw: snap.raw,
+                                      modelWindowsUnavailable: snap.modelLimitsUnavailable))
     }
 
     func readSnapshot() -> UsageSnapshot {

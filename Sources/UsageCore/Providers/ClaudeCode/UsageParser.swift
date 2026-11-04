@@ -38,6 +38,7 @@ public enum UsageParser {
         }
         snap.modelLimits = order.compactMap { models[$0] }
         snap.plan = plan(in: cleaned)
+        snap.modelLimitsUnavailable = cleaned.range(of: "Per-model breakdown unavailable", options: .caseInsensitive) != nil
 
         if !snap.hasUsage {
             if cleaned.contains("Not logged in") { snap.error = .notLoggedIn }

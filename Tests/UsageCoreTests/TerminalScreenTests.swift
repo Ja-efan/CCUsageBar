@@ -71,6 +71,39 @@ final class ProviderStateTests: XCTestCase {
         XCTAssertFalse(state.isStale)
     }
 
+    private func reading(_ windows: [UsageWindow], unavailable: Bool = false) -> Result<ProviderUsage, ProviderFailure> {
+        .success(ProviderUsage(windows: windows, modelWindowsUnavailable: unavailable))
+    }
+    private let fiveHour = UsageWindow(id: "5h", kind: .rolling(minutes: 300), usedPercent: 41)
+    private func fable(resets: Date?) -> UsageWindow {
+        UsageWindow(id: "model:Fable", kind: .model(name: "Fable", minutes: 10080), usedPercent: 9, resetsAt: resets)
+    }
+
+    func testUnavailableModelCapKeepsLastValue() {
+        let now = Date(timeIntervalSince1970: 1000)
+        var state = ProviderState()
+        state.apply(reading([fiveHour, fable(resets: now.addingTimeInterval(3600))]), at: now)
+        state.apply(reading([fiveHour], unavailable: true), at: now)
+        XCTAssertEqual(state.usage?.windows.map(\.id), ["5h", "model:Fable"])
+        XCTAssertEqual(state.usage?.window(id: "model:Fable")?.usedPercent, 9)
+    }
+
+    func testUnavailableModelCapDropsOnceReset() {
+        let now = Date(timeIntervalSince1970: 1000)
+        var state = ProviderState()
+        state.apply(reading([fiveHour, fable(resets: now.addingTimeInterval(-1))]), at: now)
+        state.apply(reading([fiveHour], unavailable: true), at: now)
+        XCTAssertEqual(state.usage?.windows.map(\.id), ["5h"])
+    }
+
+    /// Without Claude Code's notice, a cap that's missing really is gone.
+    func testMissingModelCapWithoutNoticeIsDropped() {
+        var state = ProviderState()
+        state.apply(reading([fiveHour, fable(resets: nil)]))
+        state.apply(reading([fiveHour]))
+        XCTAssertEqual(state.usage?.windows.map(\.id), ["5h"])
+    }
+
     func testFirstFailureHasNoValues() {
         var state = ProviderState()
         state.apply(.failure(ProviderFailure(.notLoggedIn)))

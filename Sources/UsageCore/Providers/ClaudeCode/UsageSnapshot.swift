@@ -23,6 +23,9 @@ public struct UsageSnapshot: Equatable, Sendable {
     public var modelLimits: [ModelLimit]
     /// "Max", "Pro", … from the startup banner ("Opus 5.5 · Claude Max").
     public var plan: String?
+    /// Claude Code said it couldn't load the model caps this time ("Per-model breakdown
+    /// unavailable (rate limited)"), so their absence doesn't mean they're gone.
+    public var modelLimitsUnavailable = false
     public var error: UsageError?
     public var raw: String
     public var updatedAt: Date

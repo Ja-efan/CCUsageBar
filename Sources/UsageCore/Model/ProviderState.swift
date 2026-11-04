@@ -19,7 +19,15 @@ public struct ProviderState: Equatable, Sendable {
     public mutating func apply(_ result: Result<ProviderUsage, ProviderFailure>, at date: Date = Date()) {
         lastAttempt = date
         switch result {
-        case .success(let new):
+        case .success(var new):
+            if new.modelWindowsUnavailable, let old = usage {
+                // Keep the last value of each model cap, unless it has reset since.
+                let ids = Set(new.windows.map(\.id))
+                new.windows += old.windows.filter { w in
+                    guard case .model = w.kind, !ids.contains(w.id) else { return false }
+                    return w.resetsAt.map { $0 > date } ?? true
+                }
+            }
             usage = new
             error = nil
             raw = new.raw
