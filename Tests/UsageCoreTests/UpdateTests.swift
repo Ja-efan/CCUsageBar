@@ -21,8 +21,8 @@ final class ReleaseTests: XCTestCase {
     func testReadsRealResponse() throws {
         let release = try Release(githubResponse: recorded())
         XCTAssertEqual(release.version, AppVersion("0.4.2"))
-        XCTAssertEqual(release.assetURL.lastPathComponent, "Noonchi-0.4.2.zip")
-        XCTAssertEqual(release.sha256.count, 64)
+        XCTAssertEqual(release.download?.url.lastPathComponent, "Noonchi-0.4.2.zip")
+        XCTAssertEqual(release.download?.sha256.count, 64)
     }
 
     private func response(url: String = "https://github.com/x/Noonchi-1.0.zip", digest: String? = "sha256:AB", name: String = "Noonchi-1.0.zip") -> Data {
@@ -30,9 +30,19 @@ final class ReleaseTests: XCTestCase {
         return Data(#"{"tag_name":"v1.0","html_url":"https://github.com/x","assets":[{"name":"\#(name)","browser_download_url":"\#(url)"\#(d)}]}"#.utf8)
     }
 
-    func testRefusesWhatItShouldNotDownload() {
+    /// A release that can't be installed here must still be announced: apps already
+    /// shipped have no other way to learn of a fix.
+    func testStillAnnouncesWhatItWontDownload() throws {
         for bad in [response(url: "http://github.com/x.zip"), response(url: "https://evil.example/x.zip"),
-                    response(digest: nil), response(name: "Other.zip"), Data("nope".utf8)] {
+                    response(digest: nil), response(name: "Other.zip")] {
+            let release = try Release(githubResponse: bad)
+            XCTAssertEqual(release.version, AppVersion("1.0"))
+            XCTAssertNil(release.download)
+        }
+    }
+
+    func testUnreadableIsAFailure() {
+        for bad in [Data("nope".utf8), Data(#"{"tag_name":"v1.0-beta","html_url":"https://github.com/x","assets":[]}"#.utf8)] {
             XCTAssertThrowsError(try Release(githubResponse: bad)) {
                 XCTAssertEqual($0 as? UpdateFailure, .unreadableRelease)
             }
@@ -64,11 +74,11 @@ final class ReleaseInstallerTests: XCTestCase {
         XCTAssertEqual(p.terminationStatus, 0, executable)
     }
 
-    private func makeApp(at url: URL, version: String, id: String? = nil, sign: Bool = true) throws {
+    private func makeApp(at url: URL, version: String, id: String? = nil, sign: Bool = true, minimumSystem: String = "14.0") throws {
         let macOS = url.appendingPathComponent("Contents/MacOS")
         try FileManager.default.createDirectory(at: macOS, withIntermediateDirectories: true)
         try FileManager.default.copyItem(atPath: "/usr/bin/true", toPath: macOS.appendingPathComponent("App").path)
-        let info: NSDictionary = ["CFBundleIdentifier": id ?? bundleID, "CFBundleShortVersionString": version, "CFBundleExecutable": "App"]
+        let info: NSDictionary = ["CFBundleIdentifier": id ?? bundleID, "CFBundleShortVersionString": version, "CFBundleExecutable": "App", "LSMinimumSystemVersion": minimumSystem]
         info.write(to: url.appendingPathComponent("Contents/Info.plist"), atomically: true)
         if sign { try sh("/usr/bin/codesign", "--force", "--sign", "-", url.path) }
     }
@@ -96,7 +106,7 @@ final class ReleaseInstallerTests: XCTestCase {
     }
 
     private func assertRefused(_ expected: UpdateFailure, zip: URL, release: Release, app: URL, line: UInt = #line) {
-        XCTAssertThrowsError(try ReleaseInstaller.prepare(zip: zip, release: release, installedApp: app, bundleID: bundleID), line: line) {
+        XCTAssertThrowsError(try ReleaseInstaller.prepare(zip: zip, release: release, download: release.download!, installedApp: app, bundleID: bundleID), line: line) {
             XCTAssertEqual($0 as? UpdateFailure, expected, line: line)
         }
         XCTAssertEqual(installedVersion(app), "1.0", "installed app untouched", line: line)
@@ -120,7 +130,7 @@ final class ReleaseInstallerTests: XCTestCase {
         let app = try installed()
         let (zip, release) = try makeRelease()
         try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: app.deletingLastPathComponent().path)
-        XCTAssertThrowsError(try ReleaseInstaller.prepare(zip: zip, release: release, installedApp: app, bundleID: bundleID)) {
+        XCTAssertThrowsError(try ReleaseInstaller.prepare(zip: zip, release: release, download: release.download!, installedApp: app, bundleID: bundleID)) {
             XCTAssertEqual($0 as? UpdateFailure, .cannotWriteToApp)
         }
     }
@@ -130,45 +140,146 @@ final class ReleaseInstallerTests: XCTestCase {
         let stale = app.deletingLastPathComponent().appendingPathComponent(".Noonchi-update-old")
         try FileManager.default.createDirectory(at: stale, withIntermediateDirectories: true)
         let (zip, release) = try makeRelease()
-        _ = try ReleaseInstaller.prepare(zip: zip, release: release, installedApp: app, bundleID: bundleID)
+        _ = try ReleaseInstaller.prepare(zip: zip, release: release, download: release.download!, installedApp: app, bundleID: bundleID)
         XCTAssertFalse(FileManager.default.fileExists(atPath: stale.path))
     }
 
-    private func swap(_ prepared: PreparedUpdate, waitFor sleeper: Process) throws -> Void {
-        // `open` on a test bundle does nothing useful: point it at a harmless flag.
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/bin/sh")
-        let script = PreparedUpdate.swapScript.replacingOccurrences(of: #"open "$@" "$old""#, with: "true")
-        p.arguments = ["-c", script, "x", String(sleeper.processIdentifier), prepared.installedApp.path, prepared.newApp.path, prepared.newApp.deletingLastPathComponent().path]
-        try p.run()
-        sleeper.waitUntilExit()
-        p.waitUntilExit()
+    /// Runs the real swap with `mv` and `open` standing in, so each failure can be forced.
+    private struct SwapRun {
+        let openedPaths: [String]
+        let openedArguments: [[String]]
+        let status: Int32
     }
 
-    func testSwapReplacesAfterTheAppQuitsAndCleansUp() throws {
+    private func runSwap(_ prepared: PreparedUpdate, waitingFor pid: Int32, waitTicks: Int = 100, failingMoves: [Int] = [], failingOpens: Int = 0) throws -> SwapRun {
+        let shims = root.appendingPathComponent("shims-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: shims, withIntermediateDirectories: true)
+        let log = shims.appendingPathComponent("open.log").path
+        let moves = shims.appendingPathComponent("moves").path
+        let opens = shims.appendingPathComponent("opens").path
+        try "0".write(toFile: moves, atomically: true, encoding: .utf8)
+        try "0".write(toFile: opens, atomically: true, encoding: .utf8)
+        let failing = failingMoves.map(String.init).joined(separator: " ")
+        let mv = "#!/bin/sh\nn=$(( $(cat '\(moves)') + 1 )); echo $n > '\(moves)'\nfor f in \(failing); do [ \"$f\" = \"$n\" ] && exit 1; done\nexec /bin/mv \"$@\"\n"
+        let open = "#!/bin/sh\nn=$(( $(cat '\(opens)') + 1 )); echo $n > '\(opens)'\n[ \"$n\" -le \(failingOpens) ] && exit 1\nprintf '%s\\n' \"$*\" >> '\(log)'\n"
+        for (name, body) in [("mv", mv), ("open", open)] {
+            let path = shims.appendingPathComponent(name).path
+            try body.write(toFile: path, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: path)
+        }
+        let process = try prepared.startSwap(waitingFor: pid, openArguments: ["--env", "A=B"], waitTicks: waitTicks,
+                                             environment: ["PATH": "\(shims.path):/usr/bin:/bin"])
+        process.waitUntilExit()
+        let lines = ((try? String(contentsOfFile: log, encoding: .utf8)) ?? "").split(separator: "\n").map(String.init)
+        return SwapRun(openedPaths: lines, openedArguments: [], status: process.terminationStatus)
+    }
+
+    private func gonePid() throws -> Int32 {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/true")
+        try p.run()
+        p.waitUntilExit()
+        return p.processIdentifier
+    }
+
+    private func prepared() throws -> (PreparedUpdate, URL) {
         let app = try installed()
         let (zip, release) = try makeRelease()
-        let prepared = try ReleaseInstaller.prepare(zip: zip, release: release, installedApp: app, bundleID: bundleID)
+        return (try ReleaseInstaller.prepare(zip: zip, release: release, download: release.download!, installedApp: app, bundleID: bundleID), app)
+    }
+
+    private func folder(_ app: URL) throws -> [String] {
+        try FileManager.default.contentsOfDirectory(atPath: app.deletingLastPathComponent().path).sorted()
+    }
+
+    func testSwapWaitsForTheAppThenReplacesOpensAndCleansUp() throws {
+        let (update, app) = try prepared()
         XCTAssertEqual(installedVersion(app), "1.0", "not swapped before the app quits")
         let sleeper = Process()
         sleeper.executableURL = URL(fileURLWithPath: "/bin/sleep")
         sleeper.arguments = ["0.3"]
         try sleeper.run()
-        try swap(prepared, waitFor: sleeper)
+        let run = try runSwap(update, waitingFor: sleeper.processIdentifier)
+        XCTAssertEqual(run.status, 0)
         XCTAssertEqual(installedVersion(app), "2.0")
-        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: app.deletingLastPathComponent().path), ["Noonchi.app"])
+        XCTAssertEqual(run.openedPaths, ["--env A=B \(app.path)"])
+        XCTAssertEqual(try folder(app), ["Noonchi.app"])
     }
 
-    func testFailedSwapPutsTheOldAppBack() throws {
-        let app = try installed()
-        let (zip, release) = try makeRelease()
-        let prepared = try ReleaseInstaller.prepare(zip: zip, release: release, installedApp: app, bundleID: bundleID)
-        try FileManager.default.removeItem(at: prepared.newApp)
+    func testAppThatWontQuitIsLeftRunningUntouched() throws {
+        let (update, app) = try prepared()
         let sleeper = Process()
         sleeper.executableURL = URL(fileURLWithPath: "/bin/sleep")
-        sleeper.arguments = ["0.1"]
+        sleeper.arguments = ["30"]
         try sleeper.run()
-        try swap(prepared, waitFor: sleeper)
+        defer { sleeper.terminate() }
+        let run = try runSwap(update, waitingFor: sleeper.processIdentifier, waitTicks: 2)
+        XCTAssertEqual(run.status, 1)
         XCTAssertEqual(installedVersion(app), "1.0")
+        XCTAssertEqual(run.openedPaths, [], "it's still running, so nothing to open")
+        XCTAssertEqual(try folder(app), ["Noonchi.app"])
+    }
+
+    func testCantMoveOldAppKeepsItAndReopensIt() throws {
+        let (update, app) = try prepared()
+        let run = try runSwap(update, waitingFor: try gonePid(), failingMoves: [1])
+        XCTAssertEqual(run.status, 1)
+        XCTAssertEqual(installedVersion(app), "1.0")
+        XCTAssertEqual(run.openedPaths.count, 1)
+        XCTAssertEqual(try folder(app), ["Noonchi.app"])
+    }
+
+    func testCantMoveNewAppPutsOldBack() throws {
+        let (update, app) = try prepared()
+        let run = try runSwap(update, waitingFor: try gonePid(), failingMoves: [2])
+        XCTAssertEqual(run.status, 1)
+        XCTAssertEqual(installedVersion(app), "1.0")
+        XCTAssertEqual(run.openedPaths.count, 1)
+        XCTAssertEqual(try folder(app), ["Noonchi.app"])
+    }
+
+    /// Review finding: this path used to delete the only copy of the app.
+    func testWhenRestoreAlsoFailsTheBackupIsNotDeleted() throws {
+        let (update, app) = try prepared()
+        let run = try runSwap(update, waitingFor: try gonePid(), failingMoves: [2, 3])
+        XCTAssertEqual(run.status, 1)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: app.path))
+        let staging = try XCTUnwrap(try folder(app).first { $0.hasPrefix(".Noonchi-update-") })
+        let backup = app.deletingLastPathComponent().appendingPathComponent(staging).appendingPathComponent("previous.app")
+        XCTAssertEqual(installedVersion(backup), "1.0")
+    }
+
+    /// Review finding: this path used to leave only an app that can't run.
+    func testNewAppThatWontOpenIsReplacedByTheOldOne() throws {
+        let (update, app) = try prepared()
+        let run = try runSwap(update, waitingFor: try gonePid(), failingOpens: 5)
+        XCTAssertEqual(run.status, 1)
+        XCTAssertEqual(installedVersion(app), "1.0")
+        XCTAssertEqual(run.openedPaths.count, 1, "the old app opened")
+        XCTAssertEqual(try folder(app), ["Noonchi.app"])
+    }
+
+    func testRefusesANewerSystemRequirement() throws {
+        let app = try installed()
+        let source = root.appendingPathComponent("min")
+        let new = source.appendingPathComponent("New.app")
+        try makeApp(at: new, version: "2.0", minimumSystem: "99.0")
+        let zip2 = root.appendingPathComponent("min.zip")
+        try sh("/usr/bin/ditto", "-c", "-k", "--keepParent", new.path, zip2.path)
+        let hash = SHA256.hash(data: try Data(contentsOf: zip2)).map { String(format: "%02x", $0) }.joined()
+        let r = try Release(githubResponse: Data(#"{"tag_name":"v2.0","html_url":"https://github.com/x","assets":[{"name":"Noonchi-2.0.zip","browser_download_url":"https://github.com/x.zip","digest":"sha256:\#(hash)"}]}"#.utf8))
+        assertRefused(.requiresNewerMacOS, zip: zip2, release: r, app: app)
+    }
+
+    func testRefusesAZipWithTwoApps() throws {
+        let app = try installed()
+        let source = root.appendingPathComponent("two")
+        try makeApp(at: source.appendingPathComponent("A.app"), version: "2.0")
+        try makeApp(at: source.appendingPathComponent("B.app"), version: "2.0")
+        let zip = root.appendingPathComponent("two.zip")
+        try sh("/usr/bin/ditto", "-c", "-k", source.path, zip.path)
+        let hash = SHA256.hash(data: try Data(contentsOf: zip)).map { String(format: "%02x", $0) }.joined()
+        let r = try Release(githubResponse: Data(#"{"tag_name":"v2.0","html_url":"https://github.com/x","assets":[{"name":"Noonchi-2.0.zip","browser_download_url":"https://github.com/x.zip","digest":"sha256:\#(hash)"}]}"#.utf8))
+        assertRefused(.invalidApp, zip: zip, release: r, app: app)
     }
 }

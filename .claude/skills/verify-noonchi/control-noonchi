@@ -258,9 +258,11 @@ cmd_set_update() {
   rm -rf "$work"
   local digest; digest="$(shasum -a 256 "$run/feed/Noonchi-$version.zip" | cut -d' ' -f1)"
   [ "$kind" = damaged ] && digest="$(printf '0%.0s' $(seq 1 64))"
+  local digest_field=",\"digest\":\"sha256:$digest\""
+  [ "$kind" = no-digest ] && digest_field=""
   local base="http://127.0.0.1:$(cat "$run/feed-port")"
   cat > "$run/feed/latest.json" <<JSON
-{"tag_name":"v$version","html_url":"$base/page","assets":[{"name":"Noonchi-$version.zip","browser_download_url":"$base/Noonchi-$version.zip","digest":"sha256:$digest"}]}
+{"tag_name":"v$version","html_url":"$base/page","assets":[{"name":"Noonchi-$version.zip","browser_download_url":"$base/Noonchi-$version.zip"$digest_field}]}
 JSON
 }
 

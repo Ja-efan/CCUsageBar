@@ -41,14 +41,32 @@ final class AppUpdater: ObservableObject {
             ?? AppVersion("0")!
     }
 
+    /// A swap that failed can't report anything: it runs after the app quit. So the app notes
+    /// what it was installing and compares on the next launch.
+    private static let attemptKey = "updateAttempt"
+
+    func reportFailedAttempt() -> Bool {
+        let defaults = UserDefaults.standard
+        guard let attempted = defaults.string(forKey: Self.attemptKey).flatMap(AppVersion.init) else { return false }
+        defaults.removeObject(forKey: Self.attemptKey)
+        guard current < attempted else { return false }
+        phase = .failed(.couldNotReplace, nil)
+        return true
+    }
+
     func check() {
+        if case .downloading = phase { return }
         phase = .checking
         Task {
             do {
                 var request = URLRequest(url: feed, timeoutInterval: 15)
                 request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
                 let (data, response) = try await URLSession.shared.data(for: request)
-                guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw UpdateFailure.network }
+                switch (response as? HTTPURLResponse)?.statusCode {
+                case 200: break
+                case 403, 429: throw UpdateFailure.rateLimited
+                default: throw UpdateFailure.network
+                }
                 let release = try Release(githubResponse: data, allowsDownload: allowsDownload)
                 phase = release.version > current ? .available(release, current: current) : .upToDate(current)
             } catch {
@@ -58,6 +76,8 @@ final class AppUpdater: ObservableObject {
     }
 
     func install(_ release: Release) {
+        guard let download = release.download else { return }
+        if case .downloading = phase { return }
         phase = .downloading(release)
         let app = Bundle.main.bundleURL
         let bundleID = Bundle.main.bundleIdentifier ?? ""
@@ -65,13 +85,18 @@ final class AppUpdater: ObservableObject {
         let openArguments = self.openArguments
         Task {
             do {
-                let (zip, response) = try await URLSession.shared.download(from: release.assetURL)
+                let (zip, response) = try await URLSession.shared.download(from: download.url)
                 defer { try? FileManager.default.removeItem(at: zip) }
                 guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw UpdateFailure.network }
                 let prepared = try await Task.detached(priority: .userInitiated) {
-                    try ReleaseInstaller.prepare(zip: zip, release: release, installedApp: app, bundleID: bundleID)
+                    try ReleaseInstaller.prepare(zip: zip, release: release, download: download, installedApp: app, bundleID: bundleID)
                 }.value
-                try prepared.launchSwap(waitingFor: pid, openArguments: openArguments)
+                do {
+                    try prepared.launchSwap(waitingFor: pid, openArguments: openArguments)
+                } catch {
+                    throw UpdateFailure.couldNotReplace
+                }
+                UserDefaults.standard.set(release.version.description, forKey: Self.attemptKey)
                 NSApp.terminate(nil)
             } catch {
                 phase = .failed(error as? UpdateFailure ?? .network, release)
@@ -96,6 +121,11 @@ enum UpdateWindow {
     private static let updater = AppUpdater()
 
     static func show(settings: AppSettings) {
+        updater.check()
+        present(settings: settings)
+    }
+
+    private static func present(settings: AppSettings) {
         if window == nil {
             let w = NSWindow(contentViewController: NSHostingController(rootView: UpdateView(updater: updater, settings: settings)))
             w.styleMask = [.titled, .closable]
@@ -104,12 +134,17 @@ enum UpdateWindow {
             window = w
         }
         window?.title = settings.strings.updateTitle
-        updater.check()
         NSApp.bringToFront()
         window?.makeKeyAndOrderFront(nil)
     }
 
     static func close() { window?.close() }
+
+    /// At launch: tells the user if the update they asked for didn't take.
+    static func showIfLastUpdateFailed(settings: AppSettings) {
+        guard updater.reportFailedAttempt() else { return }
+        present(settings: settings)
+    }
 }
 
 struct UpdateView: View {
@@ -126,12 +161,14 @@ struct UpdateView: View {
                 message(s.updateLatest, s.updateCurrent(current.description))
                 buttons { Button(s.done) { UpdateWindow.close() }.keyboardShortcut(.defaultAction) }
             case .available(let release, let current):
+                let installable = AppUpdater.installsUpdates && release.download != nil
                 message(s.updateAvailable(release.version.description),
-                        AppUpdater.installsUpdates ? s.updateInstallNote(current.description) : s.updateFromSource)
+                        installable ? s.updateInstallNote(current.description)
+                                    : AppUpdater.installsUpdates ? s.updateManual : s.updateFromSource)
                 buttons {
                     Button(s.updateChanges) { NSWorkspace.shared.open(release.pageURL) }
                     Button(s.updateLater) { UpdateWindow.close() }
-                    if AppUpdater.installsUpdates {
+                    if installable {
                         Button(s.updateInstall) { updater.install(release) }.keyboardShortcut(.defaultAction)
                     }
                 }

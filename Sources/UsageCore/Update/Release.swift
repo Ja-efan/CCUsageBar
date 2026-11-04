@@ -26,19 +26,29 @@ public struct AppVersion: Comparable, CustomStringConvertible, Sendable {
 
 public enum UpdateFailure: Error, Equatable, Sendable {
     case network
+    case rateLimited
     case unreadableRelease
     case damagedDownload
     /// The app's folder can't be written, e.g. macOS is running it from a read-only copy.
     case cannotWriteToApp
     case invalidApp
+    case requiresNewerMacOS
+    /// Everything checked out, but the swap didn't happen. Learned on the next launch.
+    case couldNotReplace
 }
 
 /// A published release, parsed from GitHub's API response.
 public struct Release: Equatable, Sendable {
+    public struct Download: Equatable, Sendable {
+        public let url: URL
+        public let sha256: String
+    }
+
     public let version: AppVersion
     public let pageURL: URL
-    public let assetURL: URL
-    public let sha256: String
+    /// Nil when this release can't be installed from inside the app. The user can still be told
+    /// about it: apps already out there have no other way to learn of a fix.
+    public let download: Download?
 
     private struct Response: Decodable {
         struct Asset: Decodable {
@@ -58,14 +68,16 @@ public struct Release: Equatable, Sendable {
     /// `allowsDownload` is the boundary check: what the app will fetch and run comes from here.
     public init(githubResponse data: Data, allowsDownload: (URL) -> Bool = Release.isGitHubDownload) throws {
         guard let response = try? JSONDecoder().decode(Response.self, from: data),
-              let version = AppVersion(response.tag_name),
-              let asset = response.assets.first(where: { $0.name == "Noonchi-\(version).zip" }),
-              allowsDownload(asset.browser_download_url),
-              let digest = asset.digest, digest.hasPrefix("sha256:")
+              let version = AppVersion(response.tag_name)
         else { throw UpdateFailure.unreadableRelease }
         self.version = version
         pageURL = response.html_url
-        assetURL = asset.browser_download_url
-        sha256 = String(digest.dropFirst("sha256:".count)).lowercased()
+        if let asset = response.assets.first(where: { $0.name == "Noonchi-\(version).zip" }),
+           allowsDownload(asset.browser_download_url),
+           let digest = asset.digest, digest.hasPrefix("sha256:") {
+            download = Download(url: asset.browser_download_url, sha256: String(digest.dropFirst("sha256:".count)).lowercased())
+        } else {
+            download = nil
+        }
     }
 }

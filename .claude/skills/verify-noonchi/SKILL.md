@@ -57,7 +57,7 @@ It fails unless the driver answers, the bundle ID is the verification one, and t
 | `$C state` | JSON of each service's loading state, error, plan, and values, with no window |
 | `$C send tick` | Does what the timer does when it fires, without waiting for it |
 | `$C send screen off`, `$C send screen on` | Acts as if the screen locked or came back |
-| `$C set-update 9.9.9 [damaged\|other-app\|unsigned]`, `$C set-update none` | Publishes a fake release to this run's local feed. Also `$C set-update 0.4.2` for up to date |
+| `$C set-update 9.9.9 [damaged\|other-app\|unsigned\|no-digest]`, `$C set-update none` | Publishes a fake release to this run's local feed. Also `$C set-update 0.4.2` for up to date |
 | `$C open-update` | ⋯ › Check for Updates, and waits for the result |
 | `$C wait-new-app` | After pressing Install, waits for the replaced app and adopts its pid |
 | `$C wait-idle` | Waits until nothing is loading, with no window |

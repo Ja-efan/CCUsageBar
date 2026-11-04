@@ -34,6 +34,7 @@ final class UsageStore: ObservableObject {
             Task { @MainActor in self?.readDueServices() }
         }
         observeScreen()
+        UpdateWindow.showIfLastUpdateFailed(settings: AppSettings.shared)
     }
 
     private func startTimer(_ interval: RefreshInterval) {

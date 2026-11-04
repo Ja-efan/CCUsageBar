@@ -62,6 +62,7 @@ struct Strings {
         t("지금 버전은 \(current)입니다. 설치하면 GitHub 릴리스에서 내려받아 교체하고 앱을 다시 엽니다. 설정은 유지됩니다.",
           "You have \(current). Installing downloads it from GitHub Releases, replaces the app, and reopens it. Your settings stay.")
     }
+    var updateManual: String { t("이 버전은 앱에서 바로 설치할 수 없어요. 변경 내용 페이지에서 받아 주세요.", "This version can't be installed from here. Get it from the What's New page.") }
     var updateFromSource: String { t("이 빌드는 소스에서 설치합니다. 브랜치를 옮긴 뒤 make install을 실행하세요.", "This build installs from source. Rebase the branch and run make install.") }
     var done: String { t("확인", "OK") }
     var updateInstall: String { t("설치", "Install") }
@@ -73,6 +74,9 @@ struct Strings {
     func updateFailure(_ failure: UpdateFailure) -> String {
         switch failure {
         case .network: return t("GitHub에 연결하지 못했어요. 지금 앱은 그대로입니다.", "Couldn't reach GitHub. Your app hasn't changed.")
+        case .rateLimited: return t("GitHub 요청이 너무 많아요. 잠시 후 다시 시도해 주세요. 지금 앱은 그대로입니다.", "Too many requests to GitHub. Try again later. Your app hasn't changed.")
+        case .requiresNewerMacOS: return t("이 버전은 더 새로운 macOS가 필요해요. 지금 앱은 그대로입니다.", "This version needs a newer macOS. Your app hasn't changed.")
+        case .couldNotReplace: return t("앱을 교체하지 못했어요. 릴리스 페이지에서 받아 직접 옮겨 주세요. 지금 앱은 그대로입니다.", "Couldn't replace the app. Get it from Releases and move it yourself. Your app hasn't changed.")
         case .unreadableRelease: return t("릴리스 정보를 읽지 못했어요. 지금 앱은 그대로입니다.", "Couldn't read the release. Your app hasn't changed.")
         case .damagedDownload: return t("받은 파일이 손상됐어요. 지금 앱은 그대로입니다.", "The download is damaged. Your app hasn't changed.")
         case .cannotWriteToApp: return t("앱 폴더에 쓸 수 없어요. 릴리스 페이지에서 받아 ~/Applications로 옮겨 주세요.", "Can't write to the app's folder. Get it from Releases and move it to ~/Applications.")
