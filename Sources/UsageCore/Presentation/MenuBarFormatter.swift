@@ -8,6 +8,20 @@ public enum MenuBarMode: String, CaseIterable, Identifiable, Sendable {
     public var id: String { rawValue }
 }
 
+public enum MenuBarValue: String, CaseIterable, Identifiable, Sendable {
+    case used, remaining
+    public var id: String { rawValue }
+
+    /// Remaining comes from the rounded used percent so the bar and the panel always add to 100.
+    public func shownPercent(used: Double) -> Int {
+        let rounded = Int(used.rounded())
+        switch self {
+        case .used: return rounded
+        case .remaining: return max(0, 100 - rounded)
+        }
+    }
+}
+
 public enum IconStyle: String, CaseIterable, Identifiable, Sendable {
     case symbol, monogram, ring
     public var id: String { rawValue }
@@ -38,7 +52,7 @@ public struct MenuBarItem: Equatable, Sendable {
     public var providerID: ProviderID
     /// "19%", or "5h 19%" and "7d 20%". "…" while loading, "⚠︎" when there's nothing to show.
     public var parts: [Part]
-    /// For the ring icon: the first shown window's usage.
+    /// For the ring icon: the first shown window's number, so the ring matches the text.
     public var ringPercent: Double?
 
     public var text: String { parts.map(\.text).joined(separator: Self.separator) }
@@ -50,7 +64,8 @@ public struct MenuBarItem: Equatable, Sendable {
 public enum MenuBarFormatter {
     /// `selected` holds "provider:window" keys for custom mode, e.g. "claude:5h".
     public static func items(for services: [(id: ProviderID, state: ProviderState)], mode: MenuBarMode,
-                             selected: [String], labeled: Bool, highlightHigh: Bool) -> [MenuBarItem] {
+                             selected: [String], labeled: Bool, highlightHigh: Bool,
+                             value: MenuBarValue = .used) -> [MenuBarItem] {
         services.compactMap { id, state in
             let windowIDs: [String]
             switch mode {
@@ -74,11 +89,11 @@ public enum MenuBarFormatter {
             }
             let windows = windowIDs.map { usage.window(id: $0) }
             let parts = zip(windowIDs, windows).map { id, window -> MenuBarItem.Part in
-                let pct = window.map { "\(Int($0.usedPercent.rounded()))%" } ?? "–"
+                let pct = window.map { "\(value.shownPercent(used: $0.usedPercent))%" } ?? "–"
                 return MenuBarItem.Part(text: labeled ? "\(window?.kind.shortLabel ?? shortLabel(forID: id)) \(pct)" : pct,
                                         highlight: window.map { Highlight(percent: $0.usedPercent, enabled: highlightHigh) } ?? .none)
             }
-            return MenuBarItem(providerID: id, parts: parts, ringPercent: windows.compactMap { $0?.usedPercent }.first)
+            return MenuBarItem(providerID: id, parts: parts, ringPercent: windows.compactMap { $0 }.first.map { Double(value.shownPercent(used: $0.usedPercent)) })
         }
     }
 

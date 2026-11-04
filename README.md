@@ -38,8 +38,9 @@ Open them from `⋯` › Settings at the bottom of the panel. Changes are saved 
 | Tab | Setting | Options |
 |---|---|---|
 | General | Display | Automatic (each service's 5-hour limit) / Custom (pick items in the Services tab) |
+| | Show | Used `19%` / Remaining `81%`. Colors always follow usage |
 | | Labels | Off `19%` / on `5h 19%` |
-| | Icon | Symbol / Letter / Ring (fills with usage) |
+| | Icon | Symbol / Letter / Ring (fills to the shown number) |
 | | Highlight high usage | Orange at 80%, red at 95% (on by default) |
 | | Bar color | System / 7 presets |
 | | Refresh every | 1 to 120 minutes (default 5). Longer uses less CPU, but limit warnings can come later |

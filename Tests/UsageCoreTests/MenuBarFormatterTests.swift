@@ -73,6 +73,53 @@ final class MenuBarFormatterTests: XCTestCase {
         XCTAssertEqual(off.first?.highlight, Highlight.none)
     }
 
+    private func item(used: Double, value: MenuBarValue, labeled: Bool = false) -> MenuBarItem? {
+        MenuBarFormatter.items(for: [(claude, state([UsageWindow(id: "5h", kind: .rolling(minutes: 300), usedPercent: used)]))],
+                               mode: .auto, selected: [], labeled: labeled, highlightHigh: true, value: value).first
+    }
+
+    func testValueChoosesTheShownNumber() {
+        XCTAssertEqual(item(used: 19, value: .used)?.text, "19%")
+        XCTAssertEqual(item(used: 19, value: .remaining)?.text, "81%")
+        XCTAssertEqual(item(used: 19, value: .used, labeled: true)?.text, "5h 19%")
+        XCTAssertEqual(item(used: 19, value: .remaining, labeled: true)?.text, "5h 81%")
+    }
+
+    func testRingFollowsTheShownNumber() {
+        XCTAssertEqual(item(used: 19, value: .used)?.ringPercent, 19)
+        XCTAssertEqual(item(used: 19, value: .remaining)?.ringPercent, 81)
+    }
+
+    func testHighlightStaysOnUsedWhenShowingRemaining() {
+        let critical = item(used: 96, value: .remaining)
+        XCTAssertEqual(critical?.text, "4%")
+        XCTAssertEqual(critical?.highlight, .critical)
+        XCTAssertEqual(item(used: 80, value: .remaining)?.highlight, .warning)
+        XCTAssertEqual(item(used: 19, value: .remaining)?.highlight, Highlight.none)
+    }
+
+    func testRemainingAddsUpWithThePanelsRoundedUsed() {
+        XCTAssertEqual(item(used: 19.5, value: .used)?.text, "20%")
+        XCTAssertEqual(item(used: 19.5, value: .remaining)?.text, "80%")
+    }
+
+    func testRemainingIsNeverNegative() {
+        let over = item(used: 104, value: .remaining)
+        XCTAssertEqual(over?.text, "0%")
+        XCTAssertEqual(over?.ringPercent, 0)
+    }
+
+    func testPlaceholdersIgnoreValue() {
+        var failed = ProviderState()
+        failed.apply(.failure(ProviderFailure(.notLoggedIn)))
+        let items = MenuBarFormatter.items(for: [(claude, ProviderState()), (codex, failed)], mode: .auto,
+                                           selected: [], labeled: false, highlightHigh: true, value: .remaining)
+        XCTAssertEqual(items.map(\.text), ["…", "⚠︎"])
+        let dash = MenuBarFormatter.items(for: [(claude, claudeState)], mode: .custom, selected: ["claude:model:Sonnet", "claude:5h"],
+                                          labeled: false, highlightHigh: true, value: .remaining)
+        XCTAssertEqual(dash.first?.text, "– · 81%")
+    }
+
     func testHighlightThresholds() {
         XCTAssertEqual([79.9, 80, 94, 95, 100].map { Highlight(percent: $0, enabled: true) },
                        [.none, .warning, .warning, .critical, .critical])

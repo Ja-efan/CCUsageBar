@@ -34,6 +34,7 @@ final class AppSettings: ObservableObject {
     private enum Key {
         static let language = "language"
         static let mode = "menuBar.mode"
+        static let value = "menuBar.value"
         static let items = "menuBar.items"
         static let labeled = "menuBar.labeled"
         static let iconStyle = "menuBar.iconStyle"
@@ -47,6 +48,7 @@ final class AppSettings: ObservableObject {
 
     @Published var language: AppLanguage { didSet { defaults.set(language.rawValue, forKey: Key.language) } }
     @Published var menuBarMode: MenuBarMode { didSet { defaults.set(menuBarMode.rawValue, forKey: Key.mode) } }
+    @Published var menuBarValue: MenuBarValue { didSet { defaults.set(menuBarValue.rawValue, forKey: Key.value) } }
     /// "provider:window" keys shown in custom mode, in display order.
     @Published var menuBarItems: [String] { didSet { defaults.set(menuBarItems, forKey: Key.items) } }
     @Published var labeled: Bool { didSet { defaults.set(labeled, forKey: Key.labeled) } }
@@ -67,6 +69,7 @@ final class AppSettings: ObservableObject {
         Self.migrateToV2(d)
         language = d.string(forKey: Key.language).flatMap(AppLanguage.init) ?? .systemDefault
         menuBarMode = d.string(forKey: Key.mode).flatMap(MenuBarMode.init) ?? .auto
+        menuBarValue = d.string(forKey: Key.value).flatMap(MenuBarValue.init) ?? .used
         menuBarItems = d.stringArray(forKey: Key.items) ?? ["claude:5h"]
         labeled = d.object(forKey: Key.labeled) as? Bool ?? false
         iconStyle = d.string(forKey: Key.iconStyle).flatMap(IconStyle.init) ?? .symbol
@@ -130,7 +133,7 @@ final class AppSettings: ObservableObject {
 
     func menuBarItems(for store: UsageStore) -> [MenuBarItem] {
         MenuBarFormatter.items(for: store.shown.map { ($0.id, store.states[$0.id] ?? ProviderState()) },
-                               mode: menuBarMode, selected: menuBarItems, labeled: labeled, highlightHigh: highlightHigh)
+                               mode: menuBarMode, selected: menuBarItems, labeled: labeled, highlightHigh: highlightHigh, value: menuBarValue)
     }
 
     // MARK: Colors

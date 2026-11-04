@@ -6,6 +6,7 @@ The menu bar item shows one entry per service. Automatic mode shows each service
 
 - `bar-auto` shows one window per service with its icon.
 - `bar-custom` shows only picked windows, in the order picked.
+- `bar-value` follows the Show setting (`menuBar.value`). Remaining shows `81%` for 19% used, the ring matches the number, and colors still follow used.
 - `bar-labels` shows `5h 19%` instead of `19%`.
 - `bar-icons` draws symbol, letter, or ring.
 - `bar-highlight` colors each high value on its own, plus the icon, and only when the setting is on.

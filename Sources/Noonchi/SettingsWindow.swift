@@ -63,6 +63,11 @@ private struct GeneralSettings: View {
                 if settings.menuBarMode == .custom {
                     Text(s.customHint).font(.caption).foregroundStyle(.secondary)
                 }
+                Picker(s.menuBarValue, selection: $settings.menuBarValue) {
+                    Text(s.valueUsed).tag(MenuBarValue.used)
+                    Text(s.valueRemaining).tag(MenuBarValue.remaining)
+                }
+                .pickerStyle(.segmented)
                 Toggle(isOn: $settings.labeled) {
                     Text(s.labels)
                     Text(s.labelsHint)

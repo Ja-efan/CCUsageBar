@@ -100,6 +100,9 @@ struct Strings {
     var modeAuto: String { t("자동", "Automatic") }
     var modeCustom: String { t("직접 선택", "Custom") }
     var customHint: String { t("서비스 탭에서 항목을 고르세요.", "Pick items in the Services tab.") }
+    var menuBarValue: String { t("표시 값", "Show") }
+    var valueUsed: String { t("사용량", "Used") }
+    var valueRemaining: String { t("남은 양", "Remaining") }
     var labels: String { t("라벨", "Labels") }
     var labelsHint: String { t("5h 19%처럼 기간 표시", "Show the period, like 5h 19%") }
     var iconStyle: String { t("아이콘", "Icon") }
@@ -108,7 +111,7 @@ struct Strings {
     var iconRing: String { t("링", "Ring") }
     var colors: String { t("색상", "Colors") }
     var highlightHigh: String { t("높을 때만 강조", "Highlight high usage") }
-    var highlightHint: String { t("80% 주황 · 95% 빨강", "Orange at 80%, red at 95%") }
+    var highlightHint: String { t("사용량 80% 주황 · 95% 빨강", "Orange at 80% used, red at 95% used") }
     var barColor: String { t("막대 색", "Bar color") }
     var systemColor: String { t("시스템", "System") }
     var launchAtLogin: String { t("로그인 시 열기", "Open at login") }
