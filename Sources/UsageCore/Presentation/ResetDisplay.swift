@@ -4,19 +4,24 @@ import Foundation
 public enum ResetDisplay: Equatable, Sendable {
     /// Within an hour: "42분 후". Zero when the time has already passed.
     case inMinutes(Int)
-    /// Within a day: "3:59 PM".
+    /// Later today: "3:59 PM".
     case time(Date)
-    /// Within a week: "토 8:59 AM".
+    /// Tomorrow to six days from now: "토 8:59 AM".
     case weekdayTime(Date)
-    /// Later: "11월 19일".
+    /// A week or more from now: "11월 19일".
     case date(Date)
 
-    public init(_ resetsAt: Date, now: Date = Date()) {
+    public init(_ resetsAt: Date, now: Date = Date(), calendar: Calendar = .current) {
         let seconds = resetsAt.timeIntervalSince(now)
-        switch seconds {
-        case ..<3600: self = .inMinutes(max(0, Int((seconds / 60).rounded(.up))))
-        case ..<86400: self = .time(resetsAt)
-        case ..<(7 * 86400): self = .weekdayTime(resetsAt)
+        if seconds < 3600 {
+            self = .inMinutes(max(0, Int((seconds / 60).rounded(.up))))
+            return
+        }
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: now),
+                                           to: calendar.startOfDay(for: resetsAt)).day ?? 0
+        switch days {
+        case ..<1: self = .time(resetsAt)
+        case ..<7: self = .weekdayTime(resetsAt)
         default: self = .date(resetsAt)
         }
     }

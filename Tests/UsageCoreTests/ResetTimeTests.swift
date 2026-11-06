@@ -49,14 +49,43 @@ final class ResetTimeParserTests: XCTestCase {
 }
 
 final class ResetDisplayTests: XCTestCase {
-    private let now = Date(timeIntervalSince1970: 1_000_000)
+    private let calendar: Calendar = {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(identifier: "Asia/Seoul")!
+        return c
+    }()
 
-    func testBuckets() {
-        XCTAssertEqual(ResetDisplay(now.addingTimeInterval(41 * 60 + 5), now: now), .inMinutes(42))
-        XCTAssertEqual(ResetDisplay(now.addingTimeInterval(-30), now: now), .inMinutes(0))
-        XCTAssertEqual(ResetDisplay(now.addingTimeInterval(3600), now: now), .time(now.addingTimeInterval(3600)))
-        XCTAssertEqual(ResetDisplay(now.addingTimeInterval(86400), now: now), .weekdayTime(now.addingTimeInterval(86400)))
-        XCTAssertEqual(ResetDisplay(now.addingTimeInterval(7 * 86400), now: now), .date(now.addingTimeInterval(7 * 86400)))
+    private func date(_ day: Int, _ hour: Int, _ minute: Int = 0) -> Date {
+        calendar.date(from: DateComponents(year: 2026, month: 11, day: day, hour: hour, minute: minute))!
+    }
+
+    private func display(_ at: Date, now: Date) -> ResetDisplay { ResetDisplay(at, now: now, calendar: calendar) }
+
+    func testWithinAnHourCountsDownEvenPastMidnight() {
+        XCTAssertEqual(display(date(7, 0, 20), now: date(6, 23, 40)), .inMinutes(40))
+        XCTAssertEqual(display(date(6, 9, 59), now: date(6, 10, 0)), .inMinutes(0))
+    }
+
+    func testLaterTodayIsJustTheTime() {
+        let at = date(6, 23, 50)
+        XCTAssertEqual(display(at, now: date(6, 10, 12)), .time(at))
+    }
+
+    /// Friday 10:12 AM, 20 hours ahead: "6:16 AM" alone left people asking which day.
+    func testTomorrowNamesTheDayEvenWithinADay() {
+        let at = date(7, 6, 16)
+        XCTAssertEqual(display(at, now: date(6, 10, 12)), .weekdayTime(at))
+    }
+
+    func testSixDaysAheadNamesTheDay() {
+        let at = date(12, 23, 0)
+        XCTAssertEqual(display(at, now: date(6, 10, 12)), .weekdayTime(at))
+    }
+
+    /// Next Friday under a week away would read "Fri 9:00 AM" on a Friday, as if already past.
+    func testSameWeekdayNextWeekShowsTheDate() {
+        let at = date(13, 9, 0)
+        XCTAssertEqual(display(at, now: date(6, 10, 12)), .date(at))
     }
 
     func testTrimmedDropsTimeZone() {
